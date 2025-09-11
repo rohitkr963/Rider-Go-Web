@@ -21,7 +21,8 @@ exports.requestRide = async (req, res) => {
     const newFields = {
       status: 'ongoing',
       captainId: req.captainId,
-      size: captain.seatingCapacity || 4,
+  // If captain has seatingCapacity use it, otherwise mark as unknown (null)
+  size: (typeof captain?.seatingCapacity === 'number') ? captain.seatingCapacity : null,
     }
 
     const ride = await Ride.findByIdAndUpdate(rideId, newFields, { new: true })
@@ -92,6 +93,8 @@ exports.planRide = async (req, res) => {
       pickupCoords: { lat: fromLat, lng: fromLng },
       dropCoords: { lat: toLat, lng: toLng },
       captainId: null, // always present, even if not assigned yet
+  // unknown size until a captain is assigned
+  size: null,
     })
 
     return res.json({
@@ -119,9 +122,9 @@ exports.getRide = async (req, res) => {
   if (!('captainId' in rideData)) rideData.captainId = null
 
     // If a captain is assigned, prefer the captain's seatingCapacity as the
-    // authoritative ride size. IMPORTANT: if we cannot determine seatingCapacity
-    // we set size = null so the frontend can show an explicit "unknown" state
-    // (black seats) instead of silently falling back to 4.
+    // authoritative ride size. If seatingCapacity cannot be determined, set
+    // size = 0 to signal "unknown" to the frontend. If no captain assigned,
+    // explicitly set size = 0 so frontend always receives a numeric value.
     if (ride.captainId) {
       try {
         const captain = await Captain.findById(ride.captainId).select('seatingCapacity')
@@ -129,7 +132,7 @@ exports.getRide = async (req, res) => {
           rideData.size = captain.seatingCapacity // always trust captain when present
           console.log('Overrode ride size from captain seating capacity:', captain.seatingCapacity)
         } else {
-          // don't force a default here — let frontend display "unknown"
+          // unknown seating capacity
           rideData.size = null
         }
       } catch (captainErr) {
@@ -161,11 +164,18 @@ exports.acceptRide = async (req, res) => {
     // ✅ Update size from captain
     try {
       const captain = await Captain.findById(req.captainId).select('seatingCapacity')
-      if (captain?.seatingCapacity) {
+      if (typeof captain?.seatingCapacity === 'number') {
         ride.size = captain.seatingCapacity
-        await ride.save()
-        console.log('Updated ride size to captain seating capacity:', captain.seatingCapacity)
+      } else {
+        // mark unknown explicitly
+        ride.size = null
       }
+      // if occupied is greater than new size, clamp it
+      if (typeof ride.occupied === 'number' && ride.size > 0) {
+        ride.occupied = Math.min(ride.occupied, ride.size)
+      }
+      await ride.save()
+      console.log('Updated ride size to captain seating capacity:', ride.size)
     } catch (updateErr) {
       console.warn('Failed to update ride size with captain seating capacity:', updateErr)
     }
@@ -270,7 +280,14 @@ exports.updateOccupancy = async (req, res) => {
       rideOccupied: ride.occupied,
     })
 
-    ride.occupied = Math.max(0, Math.min(ride.size || 4, occupied))
+    // If ride.size > 0, clamp occupied to [0, size]. If size === 0 (unknown),
+    // accept non-negative occupied values (no upper clamp) but ensure integer.
+    const incoming = Math.max(0, Math.floor(occupied))
+    if (typeof ride.size === 'number' && ride.size > 0) {
+      ride.occupied = Math.min(ride.size, incoming)
+    } else {
+      ride.occupied = incoming
+    }
     await ride.save()
 
     console.log('[updateOccupancy] saved', {
@@ -284,7 +301,8 @@ exports.updateOccupancy = async (req, res) => {
       const payload = {
         rideId: String(ride._id),
         occupied: ride.occupied,
-        size: ride.size,
+        // size may be null (unknown) or a number
+        size: (typeof ride.size === 'number') ? ride.size : null,
       }
       console.log('[updateOccupancy] emitting socket event:', payload)
       io.to(`ride:${String(ride._id)}`).emit('ride-status-updated', payload)

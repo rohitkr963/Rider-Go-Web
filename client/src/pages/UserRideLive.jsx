@@ -31,7 +31,7 @@ export default function UserRideLive() {
   const [etaMin, setEtaMin] = React.useState(null)
   const [etaKm, setEtaKm] = React.useState(null)
   const [userStarted, setUserStarted] = React.useState(false)
-  const [rideStatus, setRideStatus] = React.useState({ size: null, occupied: 0 })
+  const [rideStatus, setRideStatus] = React.useState({ originalSize: null, finalSize: null, occupied: 0 })
   const [showStatusPanel, setShowStatusPanel] = React.useState(false)
 
   const ensureMarkerStyles = React.useCallback(() => {
@@ -100,14 +100,15 @@ export default function UserRideLive() {
         }
         
         setRideStatus({
-          size: size,
+          originalSize: (typeof ride.size === 'number') ? ride.size : null,
+          finalSize: (typeof size === 'number') ? size : null,
           occupied: ride.occupied || 0
         })
-        
-        console.log('Fetched ride data:', { 
+
+        console.log('Fetched ride data:', {
           originalSize: ride.size,
           finalSize: size,
-          occupied: ride.occupied, 
+          occupied: ride.occupied,
           captainId: ride.captainId
         })
       }
@@ -349,20 +350,20 @@ export default function UserRideLive() {
     s.on('ride-status-updated', payload => {
       if (payload?.rideId === rideId) {
         setRideStatus(prev => {
-          // Prefer numeric values from the server payload. Fall back to previous state's numeric values.
-          const size = (typeof payload.size === 'number') ? payload.size : (typeof prev.size === 'number' ? prev.size : null)
+          // payload.size is authoritative final size when present
+          const finalSize = (typeof payload.size === 'number') ? payload.size : (typeof prev.finalSize === 'number' ? prev.finalSize : null)
           const occupied = (typeof payload.occupied === 'number') ? payload.occupied : (typeof prev.occupied === 'number' ? prev.occupied : 0)
 
           console.log('Socket update received:', {
             occupied: occupied,
-            size: size,
-            previousSize: prev.size
+            finalSize: finalSize,
+            previousFinal: prev.finalSize
           })
 
           return {
             ...prev,
             occupied,
-            size
+            finalSize
           }
         })
       }
@@ -375,7 +376,7 @@ export default function UserRideLive() {
       remainDashAnimRef.current = null
       remainDashLastRef.current = null
     }
-  }, [rideId, animateCaptain, ensureMarkerStyles, fromLat, fromLng, fetchRideData, rideStatus.size])
+  }, [rideId, animateCaptain, ensureMarkerStyles, fromLat, fromLng, fetchRideData])
 
   // Fetch initial ride data on mount
   React.useEffect(() => {
@@ -444,11 +445,13 @@ export default function UserRideLive() {
     setUserStarted(true)
   }, [ensureMarkerStyles, animateTo])
 
-  // Seat calculations for UI (totalSeats null means unknown)
-  const totalSeats = (typeof rideStatus.size === 'number') ? rideStatus.size : null
-  const seatsForRender = totalSeats ?? 4 // render 4 placeholder seats when unknown
-  const occupiedCount = (typeof rideStatus.occupied === 'number') ? rideStatus.occupied : 0
-  const availableCount = (totalSeats !== null) ? (totalSeats - occupiedCount) : null
+  // Seat calculations for UI
+  // finalSize is authoritative when present, otherwise fall back to originalSize
+  const seats = (typeof rideStatus.finalSize === 'number') ? rideStatus.finalSize : (typeof rideStatus.originalSize === 'number' ? rideStatus.originalSize : null)
+  const occupied = (typeof rideStatus.occupied === 'number') ? rideStatus.occupied : 0
+  // If seats is null (unknown) show 6 black placeholders
+  const seatCount = seats ?? 6
+  const availableCount = (seats !== null) ? (seats - occupied) : null
 
   return (
     <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
@@ -506,11 +509,11 @@ export default function UserRideLive() {
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>{totalSeats !== null ? totalSeats : '—'}</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>{seats !== null ? seats : '—'}</div>
                   <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seats</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#dc2626' }}>{occupiedCount}</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ef4444' }}>{occupied}</div>
                   <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Occupied</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
@@ -541,9 +544,13 @@ export default function UserRideLive() {
 
               {/* Visual seat grid: if size unknown show black seats (placeholder) */}
               <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                {Array.from({ length: seatsForRender }).map((_, i) => {
-                  const known = totalSeats !== null
-                  const color = !known ? 'black' : (i < occupiedCount ? '#16a34a' : '#9ca3af')
+                {Array.from({ length: seatCount }).map((_, i) => {
+                  // default unknown state: black
+                  let color = 'black'
+                  if (seats !== null) {
+                    // known seats: occupied -> red, free -> green
+                    color = (i < occupied) ? '#ef4444' : '#16a34a'
+                  }
                   return (
                     <div key={i} style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: color, border: '1px solid rgba(0,0,0,0.08)' }} />
                   )

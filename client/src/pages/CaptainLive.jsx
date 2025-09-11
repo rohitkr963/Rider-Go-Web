@@ -176,6 +176,7 @@ export default function CaptainLive() {
   const [pickupSuggestions, setPickupSuggestions] = useState([])
   const [destinationSuggestions, setDestinationSuggestions] = useState([])
   const socketRef = useRef(null)
+  const rideIdRef = useRef(null)
   const watchIdRef = useRef(null)
   const routeIndexRef = useRef(0)
   const simulationIntervalRef = useRef(null)
@@ -424,6 +425,13 @@ export default function CaptainLive() {
     ;(async () => {
       const realId = await ensureRideExists()
       const effectiveId = realId || rideData?.id
+      // store canonical ride id (Mongo ObjectId) when available
+      if (realId && isMongoId(realId)) {
+        rideIdRef.current = realId
+        setRideData(prev => ({ ...prev, id: realId }))
+      } else if (isMongoId(effectiveId)) {
+        rideIdRef.current = effectiveId
+      }
       // Announce to server this ride is discoverable for users with complete route data
       if (socketRef.current && effectiveId && rideData?.pickup && rideData?.destination) {
         const routeData = {
@@ -439,7 +447,7 @@ export default function CaptainLive() {
           startTime: new Date().toISOString()
         }
         console.log('🚗 Captain starting ride with route data:', routeData)
-        socketRef.current.emit('ride:start', routeData)
+  socketRef.current.emit('ride:start', routeData)
       }
       // Recalculate route from current/live position to destination at start
       if (captainPosition && rideData?.destination) {
@@ -466,11 +474,17 @@ export default function CaptainLive() {
           
           // Send location to backend via WebSocket (server expects 'location:update')
           if (socketRef.current) {
-            socketRef.current.emit('location:update', {
-              rideId: rideData?.id,
-              lat: latitude,
-              lng: longitude
-            })
+            // Prefer canonical Mongo id; avoid sending fake numeric ids (timestamps)
+            const emitRideId = rideIdRef.current || (isMongoId(rideData?.id) ? rideData.id : null)
+            if (!emitRideId) {
+              console.warn('Skipping location emit: no valid rideId yet', rideData?.id)
+            } else {
+              socketRef.current.emit('location:update', {
+                rideId: emitRideId,
+                lat: latitude,
+                lng: longitude
+              })
+            }
           }
 
           // Throttled ETA update (OSRM lightweight request without overview)
@@ -556,7 +570,10 @@ export default function CaptainLive() {
     }, 2000)
     // Inform server ride is ended
     if (socketRef.current && rideData?.id) {
-      socketRef.current.emit('ride:end', { rideId: rideData.id })
+  // End ride: prefer canonical Mongo id
+  const endRideId = rideIdRef.current || (isMongoId(rideData?.id) ? rideData.id : null)
+  if (!endRideId) console.warn('Skipping ride:end emit: no valid rideId', rideData?.id)
+  else socketRef.current.emit('ride:end', { rideId: endRideId })
     }
   }
 

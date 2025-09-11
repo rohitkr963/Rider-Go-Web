@@ -173,8 +173,10 @@ export default function CaptainHome() {
     sessionStorage.setItem('currentRide', JSON.stringify(rideData))
     
     // Navigate to live page
-    const params = new URLSearchParams({ rideId: rideData.id })
-    window.location.href = `/captain/live?${params.toString()}`
+  const isMongoId = (v) => typeof v === 'string' && /^[a-fA-F0-9]{24}$/.test(v)
+  const idToUse = isMongoId(rideData.id) ? rideData.id : rideData.id
+  const params = new URLSearchParams({ rideId: idToUse })
+  window.location.href = `/captain/live?${params.toString()}`
   }
 
   React.useEffect(() => {
