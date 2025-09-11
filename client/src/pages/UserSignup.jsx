@@ -15,18 +15,29 @@ export default function UserSignup() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const BACKEND_URL = 'http://localhost:3000/api' // <-- yahan backend URL
+
   const onSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:3000/api/user/signup', {
+      const payload = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password
+      }
+
+      const res = await fetch(`${BACKEND_URL}/user/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify(payload),
       })
+
       const data = await res.json()
       console.log('signup response', res.status, data)
       if (!res.ok) throw new Error(data?.message || 'Signup failed')
+
+      // signup success, navigate to user home
       navigate('/user/home')
     } catch (err) {
       alert(err.message)
@@ -59,5 +70,3 @@ export default function UserSignup() {
     </Box>
   )
 }
-
-

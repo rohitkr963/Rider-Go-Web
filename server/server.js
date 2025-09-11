@@ -24,13 +24,16 @@ if (typeof fetch === 'undefined') {
   }
 }
 
-// Connect MongoDB
-const mongoUrl = process.env.MONGODB_URL || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/ridergo'
+// Connect MongoDB (prefer MONGO_URI, fall back to other vars or localhost)
+const mongoUrl = process.env.MONGO_URI || process.env.MONGODB_URL || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/ridergo'
+const dbName = process.env.DB_NAME || 'ridergo'
+const redact = (u) => { if (!u) return u; try { return String(u).replace(/:\/\/.*@/, '://<credentials>@') } catch (e) { return '<redacted>' } }
+console.log('Connecting to Mongo:', redact(mongoUrl), ' DB=', dbName)
 mongoose
-  .connect(mongoUrl, { dbName: process.env.DB_NAME || 'ridergo' })
-  .then(() => console.log('MongoDB connected'))
+  .connect(mongoUrl, { dbName })
+  .then(() => console.log('MongoDB connected -', mongoose.connection.name))
   .catch((err) => {
-    console.error('MongoDB connection error:', err.message)
+    console.error('MongoDB connection error:', err && err.message ? err.message : err)
     process.exit(1)
   })
 

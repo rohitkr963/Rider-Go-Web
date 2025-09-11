@@ -23,12 +23,14 @@ export default function CaptainSignup() {
   const [enteredOtp, setEnteredOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [fieldError, setFieldError] = useState({ email: '', contact: '', vehicleNumber: '' })
-  // Check duplicate for a field using server endpoint (component scope so onBlur can call it)
+
+  const BACKEND_URL = 'http://localhost:3000/api'
+
   const checkDuplicate = async (type, value) => {
     try {
       if (!value) return
       const q = new URLSearchParams({ [type]: value }).toString()
-      const res = await fetch('/api/captain/check?' + q)
+      const res = await fetch(`${BACKEND_URL}/captain/check?${q}`)
       if (!res.ok) return
       const data = await res.json()
       if (data.exists && data.field === type) {
@@ -36,8 +38,8 @@ export default function CaptainSignup() {
       } else {
         setFieldError(prev => ({ ...prev, [type]: '' }))
       }
-    } catch {
-          console.warn('duplicate check failed', err)
+    } catch (err) {
+      console.warn('duplicate check failed', err)
     }
   }
 
@@ -45,7 +47,6 @@ export default function CaptainSignup() {
     e.preventDefault()
     setLoading(true)
     try {
-      // normalize before sending to avoid server-side duplicate due to casing/spaces
       const payload = {
         name: name.trim(),
         email: email.trim().toLowerCase(),
@@ -56,7 +57,7 @@ export default function CaptainSignup() {
         seatingCapacity: seatingCapacity === '' ? undefined : Number(seatingCapacity)
       }
 
-      const res = await fetch('/api/captain/signup', {
+      const res = await fetch(`${BACKEND_URL}/captain/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -79,7 +80,7 @@ export default function CaptainSignup() {
   const verifyOtp = async () => {
     setLoading(true)
     try {
-  const res = await fetch('/api/captain/verify-otp', {
+      const res = await fetch(`${BACKEND_URL}/captain/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contact, otp: enteredOtp }),
@@ -90,7 +91,8 @@ export default function CaptainSignup() {
       alert('Phone verified — signup complete')
       navigate('/captain/home')
     } catch (err) {
-    console.warn('verify otp failed', err); alert(err.message)
+      console.warn('verify otp failed', err)
+      alert(err.message)
     } finally {
       setLoading(false)
     }
@@ -106,24 +108,34 @@ export default function CaptainSignup() {
           <Box component="form" onSubmit={onSubmit} noValidate>
             <Stack spacing={2}>
               <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required fullWidth />
-              <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => checkDuplicate('email', email.trim().toLowerCase())} error={!!fieldError.email} helperText={fieldError.email} required fullWidth />
+              <TextField 
+                label="Email" type="email" value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                onBlur={() => checkDuplicate('email', email.trim().toLowerCase())} 
+                error={!!fieldError.email} helperText={fieldError.email} required fullWidth 
+              />
               <TextField label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required fullWidth />
-              <TextField label="Contact (phone)" value={contact} onChange={(e) => setContact(e.target.value)} onBlur={() => checkDuplicate('contact', contact.trim())} error={!!fieldError.contact} helperText={fieldError.contact} required fullWidth />
+              <TextField 
+                label="Contact (phone)" value={contact} 
+                onChange={(e) => setContact(e.target.value)} 
+                onBlur={() => checkDuplicate('contact', contact.trim())} 
+                error={!!fieldError.contact} helperText={fieldError.contact} required fullWidth 
+              />
               <TextField select label="Vehicle Type" value={vehicleType} onChange={(e) => setVehicleType(e.target.value)} fullWidth>
                 <MenuItem value="Auto">Auto</MenuItem>
                 <MenuItem value="Car">Car</MenuItem>
                 <MenuItem value="Bike">Bike</MenuItem>
               </TextField>
-              <TextField label="Vehicle Number / Registration" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} onBlur={() => checkDuplicate('vehicleNumber', vehicleNumber.trim().toUpperCase())} error={!!fieldError.vehicleNumber} helperText={fieldError.vehicleNumber} required fullWidth />
               <TextField 
-                label="Total seats"
-                type="number"
-                value={seatingCapacity}
-                onChange={(e) => setSeatingCapacity(e.target.value)}
-                inputProps={{ min: 1, step: 1 }}
-                helperText="Enter total passenger seats (e.g., Auto 3, Car 4)"
-                required
-                fullWidth 
+                label="Vehicle Number / Registration" value={vehicleNumber} 
+                onChange={(e) => setVehicleNumber(e.target.value)} 
+                onBlur={() => checkDuplicate('vehicleNumber', vehicleNumber.trim().toUpperCase())} 
+                error={!!fieldError.vehicleNumber} helperText={fieldError.vehicleNumber} required fullWidth 
+              />
+              <TextField 
+                label="Total seats" type="number" value={seatingCapacity} 
+                onChange={(e) => setSeatingCapacity(e.target.value)} inputProps={{ min: 1, step: 1 }}
+                helperText="Enter total passenger seats (e.g., Auto 3, Car 4)" required fullWidth 
               />
               <Button type="submit" variant="contained" disabled={loading}>
                 Create account
@@ -152,5 +164,3 @@ export default function CaptainSignup() {
     </Box>
   )
 }
-
-

@@ -11,6 +11,22 @@ if (typeof fetch === 'undefined') {
 const Ride = require('../models/rideModel')
 const Captain = require('../models/captainModel')
 
+// Configurable cap for unknown seating capacity to avoid runaway occupied counts
+const MAX_UNKNOWN_CAPACITY = parseInt(process.env.MAX_UNKNOWN_CAPACITY || '6', 10)
+
+// small helper: haversine distance (meters)
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const toRad = (v) => (v * Math.PI) / 180
+  const R = 6371000 // meters
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return Math.round(R * c)
+}
+
 // 🚖 User requests a ride (planning handled separately)
 exports.requestRide = async (req, res) => {
   try {
@@ -21,7 +37,7 @@ exports.requestRide = async (req, res) => {
     const newFields = {
       status: 'ongoing',
       captainId: req.captainId,
-  // If captain has seatingCapacity use it, otherwise mark as unknown (null)
+  // If captain has seatingCapacity use it, otherwise leave unknown (null)
   size: (typeof captain?.seatingCapacity === 'number') ? captain.seatingCapacity : null,
     }
 
@@ -71,15 +87,37 @@ exports.planRide = async (req, res) => {
     }
 
     const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`
-    const r = await fetch(url)
-    if (!r.ok) return res.status(502).json({ message: 'Routing service error' })
-    const data = await r.json()
 
-    const routeCoords = data.routes?.[0]?.geometry?.coordinates || []
-    const route = routeCoords.map(([lng, lat]) => ({ lat, lng }))
-    const distance = data.routes?.[0]?.distance || 0
-    const duration = data.routes?.[0]?.duration || 0
-    const steps = data.routes?.[0]?.legs?.[0]?.steps || []
+    let route = []
+    let distance = 0
+    let duration = 0
+    let steps = []
+
+    try {
+      const r = await fetch(url)
+      if (r.ok) {
+        const data = await r.json()
+        const routeCoords = data.routes?.[0]?.geometry?.coordinates || []
+        route = routeCoords.map(([lng, lat]) => ({ lat, lng }))
+        distance = data.routes?.[0]?.distance || 0
+        duration = data.routes?.[0]?.duration || 0
+        steps = data.routes?.[0]?.legs?.[0]?.steps || []
+      } else {
+        // console.warn('[planRide] routing service returned', r.status, 'falling back to straight-line route')
+        // fallback straight line
+        route = [{ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng }]
+        distance = haversineMeters(fromLat, fromLng, toLat, toLng)
+        // estimate duration assuming average speed 40 km/h -> 11.11 m/s
+        duration = Math.round(distance / 11.11)
+        steps = []
+      }
+    } catch (fetchErr) {
+      console.warn('[planRide] routing fetch failed, falling back to straight-line route:', fetchErr && fetchErr.message)
+      route = [{ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng }]
+      distance = haversineMeters(fromLat, fromLng, toLat, toLng)
+      duration = Math.round(distance / 11.11)
+      steps = []
+    }
 
     const ride = await Ride.create({
       pickup: fromName || 'Pickup',
@@ -100,6 +138,7 @@ exports.planRide = async (req, res) => {
     return res.json({
       message: 'Route planned',
       rideId: ride._id,
+      size: ride.size,
       route,
       distance,
       duration,
@@ -121,27 +160,24 @@ exports.getRide = async (req, res) => {
   // Always include captainId, even if not assigned
   if (!('captainId' in rideData)) rideData.captainId = null
 
-    // If a captain is assigned, prefer the captain's seatingCapacity as the
-    // authoritative ride size. If seatingCapacity cannot be determined, set
-    // size = 0 to signal "unknown" to the frontend. If no captain assigned,
-    // explicitly set size = 0 so frontend always receives a numeric value.
+    // Resolve size for clients: prefer captain.seatingCapacity -> ride.size -> null
     if (ride.captainId) {
       try {
         const captain = await Captain.findById(ride.captainId).select('seatingCapacity')
         if (typeof captain?.seatingCapacity === 'number') {
-          rideData.size = captain.seatingCapacity // always trust captain when present
+          rideData.size = captain.seatingCapacity
           console.log('Overrode ride size from captain seating capacity:', captain.seatingCapacity)
+        } else if (typeof ride.size === 'number') {
+          rideData.size = ride.size
         } else {
-          // unknown seating capacity
           rideData.size = null
         }
       } catch (captainErr) {
         console.warn('Failed to fetch captain seating capacity:', captainErr)
-        rideData.size = null
+        rideData.size = typeof ride.size === 'number' ? ride.size : null
       }
     } else {
-      // No captain assigned yet; size unknown
-      rideData.size = null
+      rideData.size = typeof ride.size === 'number' ? ride.size : null
     }
 
     return res.json({ ride: rideData })
@@ -161,24 +197,24 @@ exports.acceptRide = async (req, res) => {
     )
     if (!ride) return res.status(404).json({ message: 'Ride not found' })
 
-    // ✅ Update size from captain
-    try {
-      const captain = await Captain.findById(req.captainId).select('seatingCapacity')
-      if (typeof captain?.seatingCapacity === 'number') {
-        ride.size = captain.seatingCapacity
-      } else {
-        // mark unknown explicitly
-        ride.size = null
+  // ✅ Update size from captain (or keep unknown/null)
+  try {
+        const captain = await Captain.findById(req.captainId).select('seatingCapacity')
+        if (typeof captain?.seatingCapacity === 'number') {
+          ride.size = captain.seatingCapacity
+        } else if (typeof ride.size === 'number') {
+          // keep existing ride.size
+        } else {
+    ride.size = null
+        }
+        if (typeof ride.occupied === 'number' && typeof ride.size === 'number' && ride.size > 0) {
+          ride.occupied = Math.min(ride.occupied, ride.size)
+        }
+        await ride.save()
+        console.log('Updated ride size to captain seating capacity (or default):', ride.size)
+      } catch (updateErr) {
+        console.warn('Failed to update ride size with captain seating capacity:', updateErr)
       }
-      // if occupied is greater than new size, clamp it
-      if (typeof ride.occupied === 'number' && ride.size > 0) {
-        ride.occupied = Math.min(ride.occupied, ride.size)
-      }
-      await ride.save()
-      console.log('Updated ride size to captain seating capacity:', ride.size)
-    } catch (updateErr) {
-      console.warn('Failed to update ride size with captain seating capacity:', updateErr)
-    }
 
     const io = req.app.locals.io
     if (io) {
@@ -280,31 +316,44 @@ exports.updateOccupancy = async (req, res) => {
       rideOccupied: ride.occupied,
     })
 
-    // If ride.size > 0, clamp occupied to [0, size]. If size === 0 (unknown),
-    // accept non-negative occupied values (no upper clamp) but ensure integer.
+    // If ride.size > 0, clamp occupied to [0, size]. If size unknown, but a captain
+    // is assigned and has a seatingCapacity, use that as the authoritative cap for
+    // clamping and for the emitted payload. Otherwise fall back to MAX_UNKNOWN_CAPACITY.
     const incoming = Math.max(0, Math.floor(occupied))
-    if (typeof ride.size === 'number' && ride.size > 0) {
-      ride.occupied = Math.min(ride.size, incoming)
-    } else {
-      ride.occupied = incoming
+
+    // Determine an authoritative capacity without force-overwriting ride.size here
+    let authoritativeSize = (typeof ride.size === 'number' && ride.size > 0) ? ride.size : null
+    if (authoritativeSize == null && ride.captainId) {
+      try {
+        const captain = await Captain.findById(ride.captainId).select('seatingCapacity')
+        if (typeof captain?.seatingCapacity === 'number' && captain.seatingCapacity > 0) {
+          authoritativeSize = captain.seatingCapacity
+        }
+      } catch (e) {
+        console.warn('[updateOccupancy] failed to read captain seatingCapacity:', e && e.message)
+      }
     }
+
+    const capForClamping = (typeof authoritativeSize === 'number' && authoritativeSize > 0) ? authoritativeSize : MAX_UNKNOWN_CAPACITY
+    ride.occupied = Math.min(capForClamping, incoming)
     await ride.save()
 
-    console.log('[updateOccupancy] saved', {
-      rideId: id,
-      rideSize: ride.size,
-      rideOccupied: ride.occupied,
-    })
+    // console.log('[updateOccupancy] saved', {
+    //   rideId: id,
+    //   rideSize: ride.size,
+    //   rideOccupied: ride.occupied,
+    // })
 
     const io = req.app.locals.io
     if (io) {
+      // Prefer authoritativeSize (captain seatingCapacity or ride.size) for clients
+      const emittedSize = (typeof authoritativeSize === 'number') ? authoritativeSize : ((typeof ride.size === 'number') ? ride.size : null)
       const payload = {
         rideId: String(ride._id),
         occupied: ride.occupied,
-        // size may be null (unknown) or a number
-        size: (typeof ride.size === 'number') ? ride.size : null,
+        size: emittedSize,
       }
-      console.log('[updateOccupancy] emitting socket event:', payload)
+      // console.log('[updateOccupancy] emitting socket event:', payload)
       io.to(`ride:${String(ride._id)}`).emit('ride-status-updated', payload)
     }
 
