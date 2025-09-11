@@ -1,0 +1,935 @@
+import React, { useEffect, useRef, useState } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, Pane, Circle } from 'react-leaflet'
+import L from 'leaflet'
+import { io } from 'socket.io-client'
+import 'leaflet/dist/leaflet.css'
+
+// Fix for default markers in react-leaflet
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+})
+
+// Custom icons
+const pickupIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+})
+
+const destinationIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+})
+
+// Inject captain styles (halo, dot, label) once
+if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.head && !document.getElementById('captain-live-styles')) {
+  const s = document.createElement('style')
+  s.id = 'captain-live-styles'
+  s.innerHTML = `
+    .captain-marker { position: relative; width: 120px; height: 120px; pointer-events: none; }
+    .captain-halo { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(37,99,235,0.12); border: 3px solid rgba(37,99,235,0.25); box-shadow: 0 6px 18px rgba(37,99,235,0.12); pointer-events: none; }
+    .captain-dot { width: 18px; height: 18px; background: rgba(37,99,235,1); border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 18px rgba(37,99,235,0.9); border: 3px solid rgba(255,255,255,0.95); }
+    .captain-label { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 8px); background: rgba(2,6,23,0.85); color: #fff; padding: 6px 10px; border-radius: 14px; font-size: 12px; font-weight: 700; pointer-events: auto; }
+    .captain-pulse { animation: captainPulse 2400ms ease-out infinite; }
+    @keyframes captainPulse { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.9; } 65% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; } 100% { opacity: 0; } }
+  `
+  try {
+    const head = document.head || document.getElementsByTagName('head')?.[0]
+    if (head && typeof head.appendChild === 'function') head.appendChild(s)
+    else if (document.body && typeof document.body.appendChild === 'function') document.body.appendChild(s)
+  } catch (err) {
+    console.warn('Failed to inject captain styles:', err)
+  }
+}
+
+// DivIcons for captain marker (static and pulsing)
+const captainIcon = L.divIcon({
+  className: '',
+  html: `<div class="captain-marker"><div class="captain-halo"></div><div class="captain-dot"></div><div class="captain-label">CAPTAIN</div></div>`,
+  iconSize: [120, 120],
+  iconAnchor: [60, 60]
+})
+
+const captainPulsingIcon = L.divIcon({
+  className: '',
+  html: `<div class="captain-marker"><div class="captain-halo captain-pulse"></div><div class="captain-dot"></div><div class="captain-label">CAPTAIN</div></div>`,
+  iconSize: [120, 120],
+  iconAnchor: [60, 60]
+})
+
+// Component to handle map updates
+function MapUpdater({ center, zoom, fitBounds, preserve }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (center) {
+      // Smooth zoom/center
+      if (zoom) {
+        map.flyTo(center, zoom, { animate: true, duration: 0.8 })
+      } else {
+        map.flyTo(center, map.getZoom(), { animate: true, duration: 0.8 })
+      }
+    }
+  }, [center, zoom, map])
+
+  useEffect(() => {
+    if (!preserve && fitBounds && Array.isArray(fitBounds) && fitBounds.length > 0) {
+      const bounds = L.latLngBounds(fitBounds)
+      map.fitBounds(bounds, { padding: [40, 40] })
+    }
+  }, [fitBounds, preserve, map])
+  
+  return null
+}
+
+// Component for moving captain marker with smooth animation
+function MovingCaptainMarker({ position, isMoving }) {
+  const map = useMap()
+  const markerRef = useRef()
+  const animationRef = useRef()
+  const animStartRef = useRef(null)
+  const animFromRef = useRef(null)
+  const animToRef = useRef(null)
+  const pulseIntervalRef = useRef()
+  
+  useEffect(() => {
+    if (!markerRef.current && position) {
+      // Initialize marker on first render
+      markerRef.current = L.marker(position, { icon: isMoving ? captainPulsingIcon : captainIcon }).addTo(map)
+      return
+    }
+  if (markerRef.current && position) {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+      const marker = markerRef.current
+      const from = marker.getLatLng()
+      const to = L.latLng(position)
+      animFromRef.current = from
+      animToRef.current = to
+      animStartRef.current = null
+      const durationMs = 800
+
+      const step = (ts) => {
+        if (!animStartRef.current) animStartRef.current = ts
+        const t = Math.min(1, (ts - animStartRef.current) / durationMs)
+        const lat = from.lat + (to.lat - from.lat) * t
+        const lng = from.lng + (to.lng - from.lng) * t
+        marker.setLatLng([lat, lng])
+
+        // Only recenter if marker moved outside current map bounds, otherwise keep map steady
+        try {
+          const bounds = map.getBounds()
+          if (!bounds.contains([lat, lng]) && isMoving) {
+            map.panTo([lat, lng], { animate: true })
+          }
+        } catch (err) { console.warn('pan check failed', err) }
+
+        if (t < 1) {
+          animationRef.current = requestAnimationFrame(step)
+        } else {
+          // ensure final recenter at animation end if navigating
+          if (isMoving) try { map.panTo(to, { animate: true }) } catch (err) { console.warn('final pan failed', err) }
+        }
+      }
+  animationRef.current = requestAnimationFrame(step)
+      // Update icon based on moving state
+      marker.setIcon(isMoving ? captainPulsingIcon : captainIcon)
+    }
+  }, [position, isMoving, map])
+  
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+      const pid = pulseIntervalRef.current
+      if (pid) clearInterval(pid)
+    }
+  }, [])
+  
+  return null
+}
+
+export default function CaptainLive() {
+  const [rideData, setRideData] = useState(null)
+  const [captainPosition, setCaptainPosition] = useState(null)
+  const [routeCoordinates, setRouteCoordinates] = useState([])
+  const [routeDistanceKm, setRouteDistanceKm] = useState(null)
+  const [routeDurationMin, setRouteDurationMin] = useState(null)
+  const routeStepsRef = useRef([])
+  const [rideStatus, setRideStatus] = useState('planning') // planning, started, completed
+  const [currentLocation, setCurrentLocation] = useState(null)
+  const [isNavigating, setIsNavigating] = useState(false)
+  const [simulatedPosition, setSimulatedPosition] = useState(null)
+  const [mapFocus, setMapFocus] = useState(null)
+  const [mapZoomLevel, setMapZoomLevel] = useState(13)
+  const [pickupQuery, setPickupQuery] = useState('')
+  const [destinationQuery, setDestinationQuery] = useState('')
+  const [pickupSuggestions, setPickupSuggestions] = useState([])
+  const [destinationSuggestions, setDestinationSuggestions] = useState([])
+  const socketRef = useRef(null)
+  const watchIdRef = useRef(null)
+  const routeIndexRef = useRef(0)
+  const simulationIntervalRef = useRef(null)
+  const recalcTimerRef = useRef(null)
+  const lastRecalcFromRef = useRef(null)
+  const searchDebounceRef = useRef(null)
+  const lastEtaUpdateRef = useRef(0)
+  const [occupied, setOccupied] = useState(0)
+  const [vehicleSize, setVehicleSize] = useState(4)
+
+  const isMongoId = (v) => typeof v === 'string' && /^[a-fA-F0-9]{24}$/.test(v)
+
+  // get current rideId from URL
+  const getRideIdFromUrl = () => new URLSearchParams(window.location.search).get('rideId')
+  const setRideIdInUrl = (id) => {
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.set('rideId', id)
+      window.history.replaceState({}, '', url.toString())
+    } catch (_) {}
+  }
+
+  // Ensure a DB Ride exists; if not, create one using pickup/destination
+  const ensureRideExists = async () => {
+    try {
+      const currentId = (rideData && rideData.id) || getRideIdFromUrl()
+      if (isMongoId(currentId)) return currentId
+      if (!rideData?.pickup || !rideData?.destination) return null
+      const body = {
+        fromLat: rideData.pickup.lat,
+        fromLng: rideData.pickup.lng,
+        toLat: rideData.destination.lat,
+        toLng: rideData.destination.lng,
+        fromName: rideData.pickup.name,
+        toName: rideData.destination.name,
+        fare: rideData.fare || 150,
+      }
+      const res = await fetch('http://localhost:3000/api/ride/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      if (!res.ok) return null
+      const data = await res.json()
+      const newId = data?.rideId
+      if (isMongoId(newId)) {
+        setRideData(prev => ({ ...prev, id: newId }))
+        setRideIdInUrl(newId)
+        return newId
+      }
+      return null
+  } catch (err) { console.warn('ensureRideExists failed', err); return null }
+  }
+
+  // Get ride data from URL params and sessionStorage
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const rideId = urlParams.get('rideId')
+    
+    if (rideId) {
+      // Try to get ride data from sessionStorage first
+      const storedRide = sessionStorage.getItem('currentRide')
+      let rideData
+      
+      if (storedRide) {
+        rideData = JSON.parse(storedRide)
+        // Keep stored ride so refresh retains state
+      } else {
+        // Try restoring from localStorage (set on homepage)
+        const storedPickup = localStorage.getItem('pickup')
+        const storedDestination = localStorage.getItem('destination')
+        if (storedPickup && storedDestination) {
+          const pickup = JSON.parse(storedPickup)
+          const destination = JSON.parse(storedDestination)
+          rideData = {
+            id: rideId,
+            pickup,
+            destination,
+            fare: 150,
+            status: 'planned'
+          }
+        } else {
+          // Fallback to mock data if nothing stored
+          rideData = {
+            id: rideId,
+            pickup: { lat: 28.6139, lng: 77.2090, name: 'Delhi Gate' },
+            destination: { lat: 28.6304, lng: 77.2177, name: 'Connaught Place' },
+            fare: 150,
+            status: 'planned'
+          }
+        }
+      }
+      
+      setRideData(rideData)
+      // Persist for future reloads
+      if (rideData?.pickup) localStorage.setItem('pickup', JSON.stringify(rideData.pickup))
+      if (rideData?.destination) localStorage.setItem('destination', JSON.stringify(rideData.destination))
+      setCaptainPosition([rideData.pickup.lat, rideData.pickup.lng])
+      setMapFocus([rideData.pickup.lat, rideData.pickup.lng])
+      setMapZoomLevel(13)
+      if (rideData.pickup && rideData.destination) {
+        calculateRoute(rideData.pickup, rideData.destination)
+      }
+      // Pull existing ride occupancy/size if available (only if valid ObjectId)
+      ;(async () => {
+        const rid = rideId
+        if (!isMongoId(rid)) return
+        try {
+          const res = await fetch(`http://localhost:3000/api/ride/${rid}`)
+          if (res.ok) {
+            const data = await res.json()
+            const r = data?.ride
+            if (r) {
+              if (typeof r.occupied === 'number') setOccupied(r.occupied)
+              if (typeof r.size === 'number') setVehicleSize(r.size)
+            }
+          }
+        } catch (_) {}
+      })()
+    }
+  }, [])
+
+  // Geocode helper using Nominatim
+  const geocode = async (query) => {
+    if (!query || query.trim().length < 3) return []
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
+      const data = await res.json()
+      return (data || []).map(item => ({
+        displayName: item.display_name,
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon)
+      }))
+    } catch (e) {
+      console.error('Geocode error', e)
+      return []
+    }
+  }
+
+  // Debounced search for pickup
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(async () => {
+      const results = await geocode(pickupQuery)
+      setPickupSuggestions(results)
+    }, 350)
+    return () => searchDebounceRef.current && clearTimeout(searchDebounceRef.current)
+  }, [pickupQuery])
+
+  // Debounced search for destination
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(async () => {
+      const results = await geocode(destinationQuery)
+      setDestinationSuggestions(results)
+    }, 350)
+    return () => searchDebounceRef.current && clearTimeout(searchDebounceRef.current)
+  }, [destinationQuery])
+
+  const applySelection = (type, place) => {
+    if (!place) return
+    setRideData(prev => {
+      const updated = {
+        ...(prev || {}),
+        id: (prev && prev.id) || new URLSearchParams(window.location.search).get('rideId') || 'manual',
+        pickup: type === 'pickup' ? { lat: place.lat, lng: place.lng, name: place.displayName } : (prev?.pickup || null),
+        destination: type === 'destination' ? { lat: place.lat, lng: place.lng, name: place.displayName } : (prev?.destination || null),
+        fare: prev?.fare || 150,
+        status: prev?.status || 'planned'
+      }
+      // Persist
+      if (updated.pickup) localStorage.setItem('pickup', JSON.stringify(updated.pickup))
+      if (updated.destination) localStorage.setItem('destination', JSON.stringify(updated.destination))
+      // Recalc route if both present
+      if (updated.pickup && updated.destination) {
+        calculateRoute(updated.pickup, updated.destination)
+        setCaptainPosition([updated.pickup.lat, updated.pickup.lng])
+      }
+      return updated
+    })
+  }
+
+  // Calculate route using OSRM API
+  const calculateRoute = async (start, end) => {
+    try {
+      const startLat = Array.isArray(start) ? start[0] : start.lat
+      const startLng = Array.isArray(start) ? start[1] : start.lng
+      const endLat = Array.isArray(end) ? end[0] : end.lat
+      const endLng = Array.isArray(end) ? end[1] : end.lng
+
+      const response = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson&steps=true`
+      )
+      const data = await response.json()
+      
+      if (data.routes && data.routes[0]) {
+        const route = data.routes[0]
+        const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]])
+        setRouteCoordinates(coordinates)
+        if (typeof route.distance === 'number') {
+          setRouteDistanceKm((route.distance / 1000).toFixed(2))
+        }
+        if (typeof route.duration === 'number') {
+          const minutes = Math.max(1, Math.round(route.duration / 60))
+          setRouteDurationMin(minutes)
+        }
+        const steps = (route.legs || []).flatMap(l => l.steps || [])
+        const stepsWithFlags = steps.map(s => ({ ...s, _announced: false }))
+        routeStepsRef.current = stepsWithFlags
+      }
+    } catch (error) {
+      console.error('Error calculating route:', error)
+    }
+  }
+
+  // Get current location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          setCurrentLocation([latitude, longitude])
+          if (!captainPosition) {
+            setCaptainPosition([latitude, longitude])
+          }
+        },
+        (error) => console.error('Error getting location:', error),
+        { enableHighAccuracy: true }
+      )
+    }
+  }, [])
+
+  // Start ride
+  const startRide = () => {
+    setRideStatus('started')
+    setIsNavigating(true)
+    startLocationTracking()
+    // Zoom to starting point (pickup or current) like Google Maps
+    const startPoint = captainPosition || (rideData?.pickup ? [rideData.pickup.lat, rideData.pickup.lng] : null)
+    if (startPoint) {
+      setMapFocus([...startPoint])
+      setMapZoomLevel(25)
+    }
+    // Ensure a real ride exists in DB before broadcasting/patching
+    ;(async () => {
+      const realId = await ensureRideExists()
+      const effectiveId = realId || rideData?.id
+      // Announce to server this ride is discoverable for users with complete route data
+      if (socketRef.current && effectiveId && rideData?.pickup && rideData?.destination) {
+        const routeData = {
+          rideId: effectiveId,
+          captainId: rideData.captainId || 'captain_' + Date.now(),
+          captainName: 'Captain',
+          pickup: rideData.pickup,
+          destination: rideData.destination,
+          route: routeCoordinates,
+          distance: routeDistanceKm,
+          duration: routeDurationMin,
+          status: 'active',
+          startTime: new Date().toISOString()
+        }
+        console.log('🚗 Captain starting ride with route data:', routeData)
+        socketRef.current.emit('ride:start', routeData)
+      }
+      // Recalculate route from current/live position to destination at start
+      if (captainPosition && rideData?.destination) {
+        calculateRoute(captainPosition, rideData.destination)
+      }
+    })()
+  }
+
+  // Removed auto-simulation; movement depends on real GPS updates only
+
+  // Start location tracking
+  const startLocationTracking = () => {
+    if (navigator.geolocation) {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          const newPosition = [latitude, longitude]
+          setCaptainPosition(newPosition)
+          setCurrentLocation(newPosition)
+          if (isNavigating) {
+            setMapFocus([...newPosition])
+            setMapZoomLevel(25)
+          }
+          
+          // Send location to backend via WebSocket (server expects 'location:update')
+          if (socketRef.current) {
+            socketRef.current.emit('location:update', {
+              rideId: rideData?.id,
+              lat: latitude,
+              lng: longitude
+            })
+          }
+
+          // Throttled ETA update (OSRM lightweight request without overview)
+          const now = Date.now()
+          if (rideData?.destination && now - lastEtaUpdateRef.current > 1200) {
+            lastEtaUpdateRef.current = now
+            const dest = rideData.destination
+            const url = `https://router.project-osrm.org/route/v1/driving/${newPosition[1]},${newPosition[0]};${dest.lng},${dest.lat}?overview=false`
+            fetch(url)
+              .then(res => res.json())
+              .then(data => {
+                if (data && data.routes && data.routes[0]) {
+                  const r = data.routes[0]
+                  if (typeof r.distance === 'number') {
+                    const km = (r.distance / 1000)
+                    setRouteDistanceKm(km.toFixed(km >= 10 ? 0 : 1))
+                  }
+                  if (typeof r.duration === 'number') {
+                    setRouteDurationMin(Math.max(1, Math.round(r.duration / 60)))
+                  }
+                }
+              })
+              .catch(() => {})
+          }
+
+          // Voice instruction proximity check (after updating position)
+          try {
+            const here = L.latLng(latitude, longitude)
+            if (here) {
+              // Check upcoming maneuvers if available
+              if (routeStepsRef.current && routeStepsRef.current.length) {
+                for (let i = 0; i < routeStepsRef.current.length; i++) {
+                  const step = routeStepsRef.current[i]
+                  if (step._announced) continue
+                  const loc = L.latLng(step?.maneuver?.location?.[1], step?.maneuver?.location?.[0])
+                  if (!loc) continue
+                  const d = here.distanceTo(loc)
+                  if (d < 60) {
+                    const instruction = step?.maneuver?.instruction || 'Continue straight'
+                    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                      const en = new SpeechSynthesisUtterance(instruction)
+                      en.lang = 'en-US'
+                      const hi = new SpeechSynthesisUtterance(
+                        instruction.includes('left') ? 'बाईं ओर मुड़ें' : instruction.includes('right') ? 'दाईं ओर मुड़ें' : 'सीधे चलते रहें'
+                      )
+                      hi.lang = 'hi-IN'
+                      window.speechSynthesis.speak(en)
+                      setTimeout(() => window.speechSynthesis.speak(hi), 1200)
+                    }
+                    step._announced = true
+                    break
+                  }
+                }
+              }
+            }
+          } catch (err) { console.warn('maneuver check failed', err) }
+        },
+        (error) => console.error('Error tracking location:', error),
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
+      )
+    }
+  }
+
+  // End ride
+  const endRide = () => {
+    setRideStatus('completed')
+    setIsNavigating(false)
+    
+    // Clear all intervals and watchers
+    if (watchIdRef.current) {
+      navigator.geolocation.clearWatch(watchIdRef.current)
+    }
+    
+  const simId = simulationIntervalRef.current
+  if (simId) { clearInterval(simId) }
+    if (recalcTimerRef.current) {
+      clearTimeout(recalcTimerRef.current)
+    }
+    
+    // Redirect to home
+    setTimeout(() => {
+      window.location.href = '/captain/home'
+    }, 2000)
+    // Inform server ride is ended
+    if (socketRef.current && rideData?.id) {
+      socketRef.current.emit('ride:end', { rideId: rideData.id })
+    }
+  }
+
+  // Socket connection
+  useEffect(() => {
+    const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
+    const socket = io('http://localhost:3000', { auth: { token } })
+    socketRef.current = socket
+    
+    socket.on('connect', () => {
+      console.log('Connected to server')
+    })
+    // Sync occupancy via socket (ignore on captain view to avoid overriding local UI)
+    socket.on('ride-status-updated', (payload) => {
+      try {
+        const rid = String(payload?.rideId || '')
+        if (rideData?.id && String(rideData.id) === rid) {
+          // Intentionally not setting occupied here to avoid race with local UI updates
+          // You can log if needed:
+          // console.debug('socket ride-status-updated', payload)
+        }
+  } catch (err) { console.warn('restore ride data failed', err) }
+    })
+    
+    return () => {
+      socket.disconnect()
+    }
+  }, [])
+
+  // Prefer captain profile seating capacity as vehicle size
+  useEffect(() => {
+    const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
+    if (!token) return
+    ;(async () => {
+      try {
+        const res = await fetch('http://localhost:3000/api/captain/profile', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          const sc = data?.profile?.seatingCapacity
+          if (typeof sc === 'number' && sc > 0) setVehicleSize(sc)
+        }
+  } catch (err) { console.warn('map pan tooltip failed', err) }
+    })()
+  }, [])
+
+  // While ride is started, keep the route highlighted from current position to destination (debounced)
+  useEffect(() => {
+    if (rideStatus !== 'started') return
+    if (!captainPosition || !rideData?.destination) return
+    if (recalcTimerRef.current) clearTimeout(recalcTimerRef.current)
+
+    // Only recalc if moved a meaningful distance (~30m)
+    const movedEnough = (() => {
+      const last = lastRecalcFromRef.current
+      if (!last) return true
+      const toRad = (d) => (d * Math.PI) / 180
+      const R = 6371000
+      const dLat = toRad(captainPosition[0] - last[0])
+      const dLon = toRad(captainPosition[1] - last[1])
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(last[0])) * Math.cos(toRad(captainPosition[0])) * Math.sin(dLon / 2) ** 2
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      const dist = R * c
+      return dist > 30
+    })()
+
+    recalcTimerRef.current = setTimeout(() => {
+      if (movedEnough) {
+        lastRecalcFromRef.current = captainPosition
+        calculateRoute(captainPosition, rideData.destination)
+        // keep map focused on the captain while started
+        setMapFocus([...captainPosition])
+        setMapZoomLevel(18)
+      }
+    }, 3000)
+    return () => {
+      if (recalcTimerRef.current) clearTimeout(recalcTimerRef.current)
+    }
+  }, [rideStatus, captainPosition, rideData?.destination])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+      }
+  const sid = simulationIntervalRef.current
+  if (sid) clearInterval(sid)
+    }
+  }, [])
+
+  if (!rideData) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '18px',
+        color: '#666'
+      }}>
+        Loading ride data...
+      </div>
+    )
+  }
+
+  // Occupancy handlers
+  const updateOccupied = async (next) => {
+    const size = vehicleSize || 0
+    const bounded = Math.max(0, Math.min(size, next))
+    // tolerate rideData._id or rideData.id or URL param
+    let rideIdForPatch = rideData?.id || rideData?._id || getRideIdFromUrl()
+    if (!isMongoId(rideIdForPatch)) {
+      const ensured = await ensureRideExists()
+      if (ensured) rideIdForPatch = ensured
+    }
+    if (!rideIdForPatch) {
+      setOccupied(bounded)
+      return
+    }
+    try {
+      const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
+      console.debug('updateOccupied: sending PATCH', { rideIdForPatch, vehicleSize, occupied, next, bounded })
+      const res = await fetch(`http://localhost:3000/api/ride/${rideIdForPatch}/occupancy`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ occupied: bounded })
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        if (res.status === 404) console.warn('PATCH /occupancy 444444444444444 ed 404 - route not found or ride missing', { rideIdForPatch, status: res.status, body: data })
+        console.debug('updateOccupied: non-ok response', { rideIdForPatch, status: res.status, body: data })
+      }
+      // Always reflect bounded value locally to match UI intent
+      setOccupied(bounded)
+    } catch (e) {
+      console.warn('updateOccupied failed', e)
+      setOccupied(bounded)
+    }
+  }
+  const onAddPassenger = () => {
+    console.log('onAddPassenger: current occupied =', occupied, 'vehicleSize =', vehicleSize, 'next =', occupied + 1)
+    updateOccupied(occupied + 1)
+  }
+  const onRemovePassenger = () => {
+    console.log('onRemovePassenger: current occupied =', occupied, 'vehicleSize =', vehicleSize, 'next =', occupied - 1)
+    updateOccupied(occupied - 1)
+  }
+
+  const mapCenter = captainPosition || rideData.pickup
+  const mapZoom = mapZoomLevel
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{
+        background: '#fff',
+        borderBottom: '1px solid #e5e7eb',
+        padding: '16px 24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>Ride in Progress</h1>
+          <p style={{ margin: '4px 0 0 0', color: '#666' }}>
+            {rideData.pickup.name} → {rideData.destination.name}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* Auto Status Update: Occupancy controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', border: '1px solid #e5e7eb', padding: '8px 10px', borderRadius: '10px' }}>
+            <button onClick={onRemovePassenger} style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}>−1</button>
+            <div style={{ fontWeight: 700, fontSize: '14px' }}>Occupied: {occupied} / Size: {vehicleSize}</div>
+            <button onClick={onAddPassenger} style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}>+1</button>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>₹{rideData.fare}</div>
+            <div style={{ fontSize: '14px', color: '#666' }}>Estimated Fare</div>
+          </div>
+          {rideStatus === 'planning' && (
+            <button
+              onClick={startRide}
+              style={{
+                background: '#16a34a',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              Start
+            </button>
+          )}
+          {rideStatus === 'started' && (
+            <button
+              onClick={endRide}
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              End Ride
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Map Container */}
+      <div style={{ flex: 1, position: 'relative' }}>
+        {/* Search like Google Maps - only in planning state */}
+        {rideStatus === 'planning' && (
+          <div style={{ position: 'absolute', top: '16px', left: '16px', right: '16px', zIndex: 1000, display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, maxWidth: '420px' }}>
+              <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.12)', padding: '8px 12px' }}>
+                <input
+                  value={pickupQuery}
+                  onChange={(e) => setPickupQuery(e.target.value)}
+                  placeholder={rideData?.pickup?.name || 'Search pickup'}
+                  style={{ width: '100%', border: 'none', outline: 'none', fontSize: '14px' }}
+                />
+              </div>
+              {pickupSuggestions && pickupSuggestions.length > 0 && (
+                <div style={{ background: '#fff', borderRadius: '8px', marginTop: '6px', boxShadow: '0 8px 20px rgba(0,0,0,0.12)', maxHeight: '220px', overflowY: 'auto' }}>
+                  {pickupSuggestions.map((s, idx) => (
+                    <div key={`p-${idx}`} onClick={() => { applySelection('pickup', s); setPickupQuery(s.displayName); setPickupSuggestions([]) }} style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9' }}>
+                      <div style={{ fontSize: '13px', color: '#111' }}>{s.displayName}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Lat {s.lat.toFixed(5)}, Lng {s.lng.toFixed(5)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ flex: 1, maxWidth: '420px' }}>
+              <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.12)', padding: '8px 12px' }}>
+                <input
+                  value={destinationQuery}
+                  onChange={(e) => setDestinationQuery(e.target.value)}
+                  placeholder={rideData?.destination?.name || 'Search destination'}
+                  style={{ width: '100%', border: 'none', outline: 'none', fontSize: '14px' }}
+                />
+              </div>
+              {destinationSuggestions && destinationSuggestions.length > 0 && (
+                <div style={{ background: '#fff', borderRadius: '8px', marginTop: '6px', boxShadow: '0 8px 20px rgba(0,0,0,0.12)', maxHeight: '220px', overflowY: 'auto' }}>
+                  {destinationSuggestions.map((s, idx) => (
+                    <div key={`d-${idx}`} onClick={() => { applySelection('destination', s); setDestinationQuery(s.displayName); setDestinationSuggestions([]) }} style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9' }}>
+                      <div style={{ fontSize: '13px', color: '#111' }}>{s.displayName}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Lat {s.lat.toFixed(5)}, Lng {s.lng.toFixed(5)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        <MapContainer
+          center={mapCenter}
+          zoom={mapZoom}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          />
+          
+          <MapUpdater 
+            center={mapFocus || mapCenter} 
+            zoom={mapZoom} 
+            fitBounds={rideStatus === 'planning' ? routeCoordinates : null} 
+            preserve={rideStatus === 'started'}
+          />
+          
+          {/* Pickup Marker */}
+          <Marker
+            position={[rideData.pickup.lat, rideData.pickup.lng]}
+            icon={pickupIcon}
+          >
+            <Popup>
+              <div>
+                <strong>Pickup Location</strong><br />
+                {rideData.pickup.name}
+              </div>
+            </Popup>
+          </Marker>
+          
+          {/* Destination Marker */}
+          <Marker
+            position={[rideData.destination.lat, rideData.destination.lng]}
+            icon={destinationIcon}
+          >
+            <Popup>
+              <div>
+                <strong>Destination</strong><br />
+                {rideData.destination.name}
+              </div>
+            </Popup>
+          </Marker>
+          
+          {/* Captain Marker + Blue accuracy circle */}
+          {captainPosition && (
+            <>
+              <MovingCaptainMarker 
+                position={captainPosition} 
+                isMoving={isNavigating}
+              />
+              <Circle
+                center={captainPosition}
+                radius={30}
+                pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.2 }}
+              />
+            </>
+          )}
+          
+          {/* Route Polyline (with animated dash class) */}
+          <Pane name="route-pane" style={{ zIndex: 650 }}>
+            {routeCoordinates.length > 0 && (
+              <Polyline
+                pane="route-pane"
+                positions={routeCoordinates}
+                color="#2563eb"
+                weight={6}
+                opacity={0.95}
+                lineCap="round"
+                lineJoin="round"
+                className="leaflet-routing-line"
+              />
+            )}
+          </Pane>
+        </MapContainer>
+        
+        {/* Status Overlay */}
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '20px',
+          background: 'rgba(255, 255, 255, 0.95)',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          zIndex: 1000,
+          minWidth: '220px'
+        }}>
+          <div style={{ fontWeight: 'bold', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {rideStatus === 'planning' && '🟡 Ready to Start'}
+            {rideStatus === 'started' && '🟢 Ride in Progress'}
+            {rideStatus === 'completed' && '✅ Ride Completed'}
+          </div>
+          {(routeDistanceKm || routeDurationMin) && (
+            <div style={{ fontSize: '15px', color: '#111', marginBottom: '8px', fontWeight: 600 }}>
+              {routeDistanceKm ? `${routeDistanceKm} km` : '--'} • {routeDurationMin ? `${routeDurationMin} min` : '--'}
+            </div>
+          )}
+          <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+            {isNavigating ? '📍 Tracking location...' : '⏸️ Location tracking stopped'}
+          </div>
+          {captainPosition && (
+            <div style={{ fontSize: '12px', color: '#888' }}>
+              Lat: {captainPosition[0]?.toFixed(6)}, Lng: {captainPosition[1]?.toFixed(6)}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
