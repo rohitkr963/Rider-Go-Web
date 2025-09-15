@@ -159,15 +159,54 @@ function MovingCaptainMarker({ position, isMoving }) {
 }
 
 export default function CaptainLive() {
-  const [rideData, setRideData] = useState(null)
+  const [rideData, setRideData] = useState(() => {
+    // Check if we're continuing a ride from homepage
+    const activeRide = localStorage.getItem('captain_activeRide')
+    if (activeRide) {
+      try {
+        const parsed = JSON.parse(activeRide)
+        console.log('🔄 Restoring ride data from homepage continue:', parsed.rideData)
+        return parsed.rideData
+      } catch (error) {
+        console.error('❌ Failed to parse active ride data:', error)
+      }
+    }
+    return null
+  })
   const [captainPosition, setCaptainPosition] = useState(null)
   const [routeCoordinates, setRouteCoordinates] = useState([])
   const [routeDistanceKm, setRouteDistanceKm] = useState(null)
   const [routeDurationMin, setRouteDurationMin] = useState(null)
   const routeStepsRef = useRef([])
-  const [rideStatus, setRideStatus] = useState('planning') // planning, started, completed
+  const [rideStatus, setRideStatus] = useState(() => {
+    // Check if we're continuing a ride from homepage first
+    const activeRide = localStorage.getItem('captain_activeRide')
+    if (activeRide) {
+      try {
+        const parsed = JSON.parse(activeRide)
+        console.log('🔄 Restoring ride status from homepage continue:', parsed.rideStatus)
+        return parsed.rideStatus || 'planning'
+      } catch (error) {
+        console.error('❌ Failed to parse active ride status:', error)
+      }
+    }
+    
+    // Load ride status from localStorage to persist across navigation
+    const saved = localStorage.getItem('captain_rideStatus')
+    console.log('🔍 Initial rideStatus from localStorage:', saved)
+    // Force reset to planning if completed to show buttons again
+    if (saved === 'completed') {
+      localStorage.setItem('captain_rideStatus', 'planning')
+      return 'planning'
+    }
+    return saved || 'planning'
+  }) // planning, started, completed
   const [currentLocation, setCurrentLocation] = useState(null)
-  const [isNavigating, setIsNavigating] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(() => {
+    // Load navigation state from localStorage
+    const saved = localStorage.getItem('captain_isNavigating')
+    return saved === 'true'
+  })
   const [simulatedPosition, setSimulatedPosition] = useState(null)
   const [mapFocus, setMapFocus] = useState(null)
   const [mapZoomLevel, setMapZoomLevel] = useState(13)
@@ -184,8 +223,33 @@ export default function CaptainLive() {
   const lastRecalcFromRef = useRef(null)
   const searchDebounceRef = useRef(null)
   const lastEtaUpdateRef = useRef(0)
-  const [occupied, setOccupied] = useState(0)
-  const [vehicleSize, setVehicleSize] = useState(4)
+  const [occupied, setOccupied] = useState(() => {
+    // Always start with 0 for fresh rides, only restore if continuing active ride
+    const activeRide = localStorage.getItem('captain_activeRide')
+    if (activeRide) {
+      try {
+        const parsed = JSON.parse(activeRide)
+        // Only restore occupied count if ride status is 'started' (active ride)
+        if (parsed.rideStatus === 'started' && typeof parsed.occupied === 'number') {
+          return parsed.occupied
+        }
+      } catch (e) { /* ignore */ }
+    }
+    // Default to 0 for fresh rides
+    return 0
+  })
+  const [vehicleSize, setVehicleSize] = useState(() => {
+    const saved = localStorage.getItem('captain_vehicleSize')
+    return saved ? parseInt(saved) : 4
+  })
+  const [bookingNotifications, setBookingNotifications] = useState([])
+  const [showBookingPanel, setShowBookingPanel] = useState(false)
+  const [incomingRideRequest, setIncomingRideRequest] = useState(null)
+  const [showAcceptRejectModal, setShowAcceptRejectModal] = useState(false)
+  const [acceptedRides, setAcceptedRides] = useState(() => {
+    const saved = localStorage.getItem('captain_acceptedRides')
+    return saved ? JSON.parse(saved) : []
+  })
 
   const isMongoId = (v) => typeof v === 'string' && /^[a-fA-F0-9]{24}$/.test(v)
 
@@ -412,8 +476,18 @@ export default function CaptainLive() {
 
   // Start ride
   const startRide = () => {
+    console.log('🚀 Starting ride, current status:', rideStatus)
     setRideStatus('started')
     setIsNavigating(true)
+    
+    // Reset seat count to 0 when starting a new ride
+    setOccupied(0)
+    localStorage.setItem('captain_occupied', '0')
+    
+    // Persist ride status to localStorage
+    localStorage.setItem('captain_rideStatus', 'started')
+    localStorage.setItem('captain_isNavigating', 'true')
+    console.log('✅ Ride status set to started, seat count reset to 0, localStorage updated')
     startLocationTracking()
     // Zoom to starting point (pickup or current) like Google Maps
     const startPoint = captainPosition || (rideData?.pickup ? [rideData.pickup.lat, rideData.pickup.lng] : null)
@@ -552,6 +626,13 @@ export default function CaptainLive() {
   const endRide = () => {
     setRideStatus('completed')
     setIsNavigating(false)
+    // Persist ride status to localStorage
+    localStorage.setItem('captain_rideStatus', 'completed')
+    localStorage.setItem('captain_isNavigating', 'false')
+    
+    // Clear active ride data so continue ride option disappears from homepage
+    localStorage.removeItem('captain_activeRide')
+    console.log('🧹 Cleared active ride data - continue ride option will be removed from homepage')
     
     // Clear all intervals and watchers
     if (watchIdRef.current) {
@@ -564,7 +645,7 @@ export default function CaptainLive() {
       clearTimeout(recalcTimerRef.current)
     }
     
-    // Redirect to home
+    // Navigate to home with full page refresh to clear all state
     setTimeout(() => {
       window.location.href = '/captain/home'
     }, 2000)
@@ -584,17 +665,89 @@ export default function CaptainLive() {
     socketRef.current = socket
     
     socket.on('connect', () => {
-      console.log('Connected to server')
+      console.log('✅ Captain socket connected, ID:', socket.id)
     })
+    
+    // Listen for ALL socket events for debugging
+    socket.onAny((eventName, ...args) => {
+      console.log('📡 Captain received event:', eventName, args)
+    })
+    
+    // Listen for ride requests from users
+    socket.on('ride:request', (payload) => {
+      console.log('🔔 Captain received ride request:', payload)
+      console.log('👥 Received passenger count:', payload.passengerCount)
+      console.log('🔍 Full payload:', JSON.stringify(payload, null, 2))
+      alert(`New ride request from user: ${payload.userId} for ${payload.passengerCount || 1} passenger${(payload.passengerCount || 1) > 1 ? 's' : ''}`)
+      setIncomingRideRequest(payload)
+      setShowAcceptRejectModal(true)
+    })
+    
+    // Listen for booking notifications
+    socket.on('ride:booking', (payload) => {
+      console.log('New booking notification:', payload)
+      const notification = {
+        id: Date.now(),
+        rideId: payload.rideId,
+        occupied: payload.occupied,
+        size: payload.size,
+        timestamp: new Date().toISOString()
+      }
+      setBookingNotifications(prev => [notification, ...prev.slice(0, 4)]) // Keep last 5
+      setShowBookingPanel(true)
+      
+      // Auto-hide after 10 seconds
+      setTimeout(() => {
+        setBookingNotifications(prev => prev.filter(n => n.id !== notification.id))
+      }, 10000)
+    })
+    
+    // Listen for accepted rides list updates
+    socket.on('ride:accepted-list', (rides) => {
+      console.log('📋 Accepted rides list updated:', rides)
+      setAcceptedRides(rides)
+      // Persist to localStorage
+      localStorage.setItem('captain_acceptedRides', JSON.stringify(rides))
+    })
+    
     // Sync occupancy via socket (ignore on captain view to avoid overriding local UI)
     socket.on('ride-status-updated', (payload) => {
       try {
         const rid = String(payload?.rideId || '')
         if (rideData?.id && String(rideData.id) === rid) {
-          // Intentionally not setting occupied here to avoid race with local UI updates
-          // You can log if needed:
-          // console.debug('socket ride-status-updated', payload)
+          // Update occupancy from socket for real-time sync
+          if (typeof payload.occupied === 'number') {
+            setOccupied(payload.occupied)
+            // Persist to localStorage
+            localStorage.setItem('captain_occupied', payload.occupied.toString())
+          }
+          if (typeof payload.size === 'number') {
+            setVehicleSize(payload.size)
+            // Persist to localStorage
+            localStorage.setItem('captain_vehicleSize', payload.size.toString())
+          }
         }
+
+    // Listen for ride cancellations
+    socket.on('ride:cancelled', payload => {
+      console.log('🚫 Captain received ride cancellation:', payload)
+      if (payload?.rideId === rideId) {
+        // Remove cancelled ride from accepted rides list
+        setAcceptedRides(prev => {
+          const updated = prev.filter(ride => ride.acceptanceId !== payload.acceptanceId)
+          localStorage.setItem('captain_acceptedRides', JSON.stringify(updated))
+          return updated
+        })
+        
+        // Show notification
+        setBookingNotifications(prev => [...prev, {
+          id: Date.now(),
+          type: 'cancellation',
+          message: `User cancelled their booking (${payload.passengerCount || 1} seat${payload.passengerCount > 1 ? 's' : ''} freed)`,
+          timestamp: Date.now()
+        }])
+      }
+    })
   } catch (err) { console.warn('restore ride data failed', err) }
     })
     
@@ -605,20 +758,113 @@ export default function CaptainLive() {
 
   // Prefer captain profile seating capacity as vehicle size
   useEffect(() => {
+    // Check if we're continuing a ride and restore all saved state
+    const activeRide = localStorage.getItem('captain_activeRide')
+    if (activeRide) {
+      try {
+        const parsed = JSON.parse(activeRide)
+        console.log('🔄 Restoring complete ride state from homepage continue:', parsed)
+        
+        // Restore all saved state without overriding existing state
+        if (parsed.rideData && !rideData) {
+          setRideData(parsed.rideData)
+        }
+        if (parsed.rideStatus && rideStatus === 'planning') {
+          setRideStatus(parsed.rideStatus)
+          // Also update localStorage to maintain consistency
+          localStorage.setItem('captain_rideStatus', parsed.rideStatus)
+        }
+        if (parsed.captainPosition) {
+          setCaptainPosition(parsed.captainPosition)
+        }
+        if (parsed.routeCoordinates) {
+          setRouteCoordinates(parsed.routeCoordinates)
+        }
+        if (parsed.routeDistanceKm) {
+          setRouteDistanceKm(parsed.routeDistanceKm)
+        }
+        if (parsed.routeDurationMin) {
+          setRouteDurationMin(parsed.routeDurationMin)
+        }
+        
+        // Restore seat count and vehicle size from saved state
+        // Only restore occupied seats if ride status is 'started' (continuing active ride)
+        // For 'planning' status, keep seats at 0 for fresh start
+        if (typeof parsed.occupied === 'number' && parsed.rideStatus === 'started') {
+          setOccupied(parsed.occupied)
+          localStorage.setItem('captain_occupied', parsed.occupied.toString())
+          console.log('🪑 Restored occupied seats for active ride:', parsed.occupied)
+        } else if (parsed.rideStatus === 'planning') {
+          // Reset to 0 for planning status (fresh ride)
+          setOccupied(0)
+          localStorage.setItem('captain_occupied', '0')
+          console.log('🪑 Reset occupied seats to 0 for fresh ride')
+        }
+        if (typeof parsed.vehicleSize === 'number') {
+          setVehicleSize(parsed.vehicleSize)
+          localStorage.setItem('captain_vehicleSize', parsed.vehicleSize.toString())
+          console.log('🚗 Restored vehicle size:', parsed.vehicleSize)
+        }
+        
+        // Set the rideId in URL to maintain consistency
+        if (parsed.rideId) {
+          setRideIdInUrl(parsed.rideId)
+          rideIdRef.current = parsed.rideId
+        }
+        
+        // Clear the active ride data after restoring to prevent re-restoration
+        localStorage.removeItem('captain_activeRide')
+        console.log('✅ Successfully restored ride state from continue and cleared active ride data')
+      } catch (error) {
+        console.error('❌ Failed to restore active ride state:', error)
+      }
+    }
+
     const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
     if (!token) return
     ;(async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/captain/profile', {
+        const res = await fetch('http://localhost:3000/api/auth/captain/profile', {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (res.ok) {
           const data = await res.json()
           const sc = data?.profile?.seatingCapacity
-          if (typeof sc === 'number' && sc > 0) setVehicleSize(sc)
+          // Only set vehicle size from profile if not already restored from active ride
+          if (typeof sc === 'number' && sc > 0 && !activeRide) {
+            setVehicleSize(sc)
+          }
         }
   } catch (err) { console.warn('map pan tooltip failed', err) }
     })()
+
+    // Load accepted rides from localStorage and server
+    const loadAcceptedRides = async () => {
+      try {
+        // First load from localStorage for immediate display
+        const saved = localStorage.getItem('captain_acceptedRides')
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          setAcceptedRides(parsed)
+        }
+
+        // Then fetch fresh data from server with captain-specific filtering
+        const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
+        const captainId = localStorage.getItem('captainId') || localStorage.getItem('captain_id') || 'unknown'
+        
+        const response = await fetch(`http://localhost:3000/api/accepted-rides?captainId=${captainId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setAcceptedRides(data.rides || [])
+          localStorage.setItem('captain_acceptedRides', JSON.stringify(data.rides || []))
+        }
+      } catch (error) {
+        console.error('Failed to load accepted rides:', error)
+      }
+    }
   }, [])
 
   // While ride is started, keep the route highlighted from current position to destination (debounced)
@@ -670,13 +916,89 @@ export default function CaptainLive() {
     return (
       <div style={{ 
         display: 'flex', 
+        flexDirection: 'column',
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
         fontSize: '18px',
-        color: '#666'
+        color: '#666',
+        gap: '20px'
       }}>
-        Loading ride data...
+        <div>Loading ride data...</div>
+        
+        {/* Always show Start/End buttons */}
+        <div style={{ 
+          background: '#fff', 
+          padding: '20px', 
+          borderRadius: '12px', 
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          minWidth: '300px'
+        }}>
+          <div style={{ fontSize: '12px', color: '#999', marginBottom: '8px', padding: '4px 8px', background: '#f5f5f5', borderRadius: '4px' }}>
+            Status: {rideStatus} | localStorage: {localStorage.getItem('captain_rideStatus')}
+          </div>
+          
+          <button
+            onClick={() => {
+              console.log('🚀 Force Start clicked, current status:', rideStatus)
+              setRideStatus('planning')
+              localStorage.setItem('captain_rideStatus', 'planning')
+            }}
+            style={{
+              width: '100%',
+              background: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              marginBottom: '8px'
+            }}
+          >
+            🔄 Reset to Planning
+          </button>
+          
+          {rideStatus === 'planning' && (
+            <button
+              onClick={startRide}
+              style={{
+                width: '100%',
+                background: '#16a34a',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              Start Ride
+            </button>
+          )}
+          
+          {rideStatus === 'started' && (
+            <button
+              onClick={endRide}
+              style={{
+                width: '100%',
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              End Ride
+            </button>
+          )}
+          
+        </div>
       </div>
     )
   }
@@ -685,11 +1007,14 @@ export default function CaptainLive() {
   const updateOccupied = async (next) => {
     const size = vehicleSize || 0
     const bounded = Math.max(0, Math.min(size, next))
-    // tolerate rideData._id or rideData.id or URL param
-    let rideIdForPatch = rideData?.id || rideData?._id || getRideIdFromUrl()
+    // Use rideIdRef.current first (canonical Mongo ID), then fallback to other sources
+    let rideIdForPatch = rideIdRef.current || rideData?.id || rideData?._id || getRideIdFromUrl()
     if (!isMongoId(rideIdForPatch)) {
       const ensured = await ensureRideExists()
-      if (ensured) rideIdForPatch = ensured
+      if (ensured) {
+        rideIdForPatch = ensured
+        rideIdRef.current = ensured // Update ref with canonical ID
+      }
     }
     if (!rideIdForPatch) {
       setOccupied(bounded)
@@ -705,14 +1030,19 @@ export default function CaptainLive() {
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) {
-        if (res.status === 404) console.warn('PATCH /occupancy 444444444444444 ed 404 - route not found or ride missing', { rideIdForPatch, status: res.status, body: data })
+        if (res.status === 404) console.warn('PATCH /occupancy 404 - route not found or ride missing', { rideIdForPatch, status: res.status, body: data })
         console.debug('updateOccupied: non-ok response', { rideIdForPatch, status: res.status, body: data })
+      } else {
+        console.log('✅ Seat update successful:', { rideId: rideIdForPatch, occupied: bounded })
       }
       // Always reflect bounded value locally to match UI intent
       setOccupied(bounded)
+      // Update localStorage to persist the change
+      localStorage.setItem('captain_occupied', bounded.toString())
     } catch (e) {
       console.warn('updateOccupied failed', e)
       setOccupied(bounded)
+      localStorage.setItem('captain_occupied', bounded.toString())
     }
   }
   const onAddPassenger = () => {
@@ -722,6 +1052,62 @@ export default function CaptainLive() {
   const onRemovePassenger = () => {
     console.log('onRemovePassenger: current occupied =', occupied, 'vehicleSize =', vehicleSize, 'next =', occupied - 1)
     updateOccupied(occupied - 1)
+  }
+
+  // Handle ride request accept/reject
+  const handleRideRequestResponse = (action) => {
+    if (socketRef.current && incomingRideRequest) {
+      if (action === 'accept') {
+        const requestedSeats = incomingRideRequest.passengerCount || 1
+        const availableSeats = vehicleSize - occupied
+        
+        // Check if enough seats available
+        if (requestedSeats > availableSeats) {
+          alert(`❌ Only ${availableSeats} seat${availableSeats !== 1 ? 's' : ''} available, but ${requestedSeats} requested. Cannot accept this booking.`)
+          setShowAcceptRejectModal(false)
+          return
+        }
+        
+        // Accept the ride
+        socketRef.current.emit('ride:accept', {
+          rideId: incomingRideRequest.rideId,
+          userId: incomingRideRequest.userId,
+          userEmail: incomingRideRequest.userEmail,
+          captainId: rideData?.captainId || 'captain_' + Date.now(),
+          passengerCount: requestedSeats,
+          pickup: incomingRideRequest.pickup,
+          destination: incomingRideRequest.destination,
+          fare: incomingRideRequest.fare,
+          distance: incomingRideRequest.distance,
+          duration: incomingRideRequest.duration
+        })
+      } else {
+        // Reject the ride
+        socketRef.current.emit('ride:reject', {
+          rideId: incomingRideRequest.rideId,
+          userId: incomingRideRequest.userId,
+          captainId: rideData?.captainId || 'captain_' + Date.now()
+        })
+      }
+      
+      setShowAcceptRejectModal(false)
+      setIncomingRideRequest(null)
+    }
+  }
+
+  // Handle booking accept/reject (legacy)
+  const handleBookingResponse = (rideId, action) => {
+    if (socketRef.current) {
+      socketRef.current.emit(`booking:${action}`, {
+        rideId,
+        captainId: rideData?.captainId || 'captain_' + Date.now()
+      })
+      
+      // Remove the notification after responding
+      setBookingNotifications(prev => prev.filter(n => n.rideId !== rideId))
+      
+      console.log(`${action === 'accept' ? 'Accepted' : 'Rejected'} booking for ride ${rideId}`)
+    }
   }
 
   const mapCenter = captainPosition || rideData.pickup
@@ -746,6 +1132,115 @@ export default function CaptainLive() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* Booking Notifications Button */}
+          {bookingNotifications.length > 0 && (
+            <button
+              onClick={() => setShowBookingPanel(!showBookingPanel)}
+              style={{
+                position: 'relative',
+                background: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              🔔 {bookingNotifications.length} New Booking{bookingNotifications.length > 1 ? 's' : ''}
+              {bookingNotifications.length > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  right: '-8px',
+                  background: '#dc2626',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {bookingNotifications.length}
+                </span>
+              )}
+            </button>
+          )}
+          
+          {/* Navigation Buttons */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            {/* Home Button */}
+            <button
+              onClick={() => {
+                // Save complete active ride state for homepage continue functionality
+                const activeRideState = {
+                  rideId: rideIdRef.current,
+                  rideData: rideData,
+                  rideStatus: rideStatus,
+                  captainPosition: captainPosition,
+                  routeCoordinates: routeCoordinates,
+                  routeDistanceKm: routeDistanceKm,
+                  routeDurationMin: routeDurationMin,
+                  occupied: occupied,
+                  vehicleSize: vehicleSize,
+                  timestamp: new Date().toISOString()
+                }
+                localStorage.setItem('captain_activeRide', JSON.stringify(activeRideState))
+                console.log('💾 Saved complete active ride state for homepage continue:', activeRideState)
+                window.history.pushState({}, '', '/captain/home')
+                window.dispatchEvent(new PopStateEvent('popstate'))
+              }}
+              style={{
+                flex: 1,
+                padding: '10px 16px',
+                background: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              🏠 Home
+            </button>
+
+            {/* View Accepted Rides Button */}
+            <button
+              onClick={() => {
+                window.history.pushState({}, '', '/accepted-rides')
+                window.dispatchEvent(new PopStateEvent('popstate'))
+              }}
+              style={{
+                flex: 1,
+                padding: '10px 16px',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              📋 Rides ({acceptedRides.length})
+            </button>
+          </div>
+
           {/* Auto Status Update: Occupancy controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', border: '1px solid #e5e7eb', padding: '8px 10px', borderRadius: '10px' }}>
             <button onClick={onRemovePassenger} style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}>−1</button>
@@ -756,6 +1251,12 @@ export default function CaptainLive() {
             <div style={{ fontSize: '18px', fontWeight: 'bold' }}>₹{rideData.fare}</div>
             <div style={{ fontSize: '14px', color: '#666' }}>Estimated Fare</div>
           </div>
+          
+          {/* Debug: Show current rideStatus */}
+          <div style={{ fontSize: '12px', color: '#999', marginBottom: '8px', padding: '4px 8px', background: '#f5f5f5', borderRadius: '4px' }}>
+            Status: {rideStatus} | localStorage: {localStorage.getItem('captain_rideStatus')}
+          </div>
+          
           {rideStatus === 'planning' && (
             <button
               onClick={startRide}
@@ -915,6 +1416,242 @@ export default function CaptainLive() {
           </Pane>
         </MapContainer>
         
+        {/* Booking Notifications Panel */}
+        {showBookingPanel && bookingNotifications.length > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            background: 'white',
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+            padding: '16px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 1001,
+            maxWidth: '350px',
+            maxHeight: '400px',
+            overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#111' }}>🔔 Booking Notifications</h3>
+              <button
+                onClick={() => setShowBookingPanel(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            {bookingNotifications.map((notification) => (
+              <div key={notification.id} style={{
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '8px',
+                padding: '12px',
+                marginBottom: '8px'
+              }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#166534', marginBottom: '4px' }}>
+                  {notification.message}
+                </div>
+                <div style={{ fontSize: '12px', color: '#16a34a', marginBottom: '6px' }}>
+                  Seats: {notification.occupied}/{notification.size} • {notification.timestamp}
+                </div>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>
+                  Ride ID: {notification.rideId}
+                </div>
+                
+                {/* Accept/Reject Buttons */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => handleBookingResponse(notification.rideId, 'accept')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 12px',
+                      background: '#16a34a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✅ Accept
+                  </button>
+                  <button
+                    onClick={() => handleBookingResponse(notification.rideId, 'reject')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 12px',
+                      background: '#dc2626',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ❌ Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+            
+            <button
+              onClick={() => setBookingNotifications([])}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                background: '#f3f4f6',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '12px',
+                color: '#374151',
+                cursor: 'pointer',
+                marginTop: '8px'
+              }}
+            >
+              Clear All Notifications
+            </button>
+          </div>
+        )}
+        
+        {/* Accept/Reject Modal */}
+        {showAcceptRejectModal && incomingRideRequest && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000
+          }}>
+            <div style={{
+              background: 'white',
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+              maxWidth: '400px',
+              width: '90%'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: 'bold', color: '#111827' }}>
+                🚖 New Ride Request
+              </h3>
+              <div style={{ marginBottom: '20px', color: '#374151' }}>
+                <p style={{ margin: '8px 0' }}>
+                  <strong>User ID:</strong> {incomingRideRequest.userId}
+                </p>
+                <p style={{ margin: '8px 0' }}>
+                  <strong>Passengers:</strong> {incomingRideRequest.passengerCount || 1} passenger{(incomingRideRequest.passengerCount || 1) > 1 ? 's' : ''}
+                </p>
+                <p style={{ margin: '8px 0' }}>
+                  <strong>Pickup:</strong> {incomingRideRequest.pickup?.lat?.toFixed(4)}, {incomingRideRequest.pickup?.lng?.toFixed(4)}
+                </p>
+                <p style={{ margin: '8px 0' }}>
+                  <strong>Destination:</strong> {incomingRideRequest.destination?.lat?.toFixed(4)}, {incomingRideRequest.destination?.lng?.toFixed(4)}
+                </p>
+                {/* Occupancy Controls */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    background: '#f8fafc',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <span style={{ fontWeight: '600', color: '#374151' }}>
+                      👥 Passengers: {occupied}/{vehicleSize}
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={onRemovePassenger}
+                        disabled={occupied <= 0}
+                        style={{
+                          padding: '6px 12px',
+                          background: occupied <= 0 ? '#e5e7eb' : '#ef4444',
+                          color: occupied <= 0 ? '#9ca3af' : 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: occupied <= 0 ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        ➖
+                      </button>
+                      <button
+                        onClick={onAddPassenger}
+                        disabled={occupied >= vehicleSize}
+                        style={{
+                          padding: '6px 12px',
+                          background: occupied >= vehicleSize ? '#e5e7eb' : '#22c55e',
+                          color: occupied >= vehicleSize ? '#9ca3af' : 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: occupied >= vehicleSize ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        ➕
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={() => handleRideRequestResponse('accept')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    background: '#16a34a',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✅ Accept
+                </button>
+                <button
+                  onClick={() => handleRideRequestResponse('reject')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    background: '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ❌ Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Status Overlay */}
         <div style={{
           position: 'absolute',
@@ -950,3 +1687,4 @@ export default function CaptainLive() {
     </div>
   )
 }
+  

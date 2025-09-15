@@ -1,5 +1,6 @@
 import React from 'react'
 import { io } from 'socket.io-client'
+import { useNavigate } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 
 const container = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' }
@@ -12,12 +13,13 @@ function osmEmbedSrc(lat, lon) {
 }
 
 export default function CaptainHome() {
-  // navigate not needed; using window.location for full-page redirect to live view
+  const navigate = useNavigate()
   const [online, setOnline] = React.useState(false)
   const [lat, setLat] = React.useState(28.6139) // default: New Delhi
   const [lon, setLon] = React.useState(77.2090)
   const [requests, setRequests] = React.useState([])
   const [activeRide, setActiveRide] = React.useState(null)
+  const [continueRideData, setContinueRideData] = React.useState(null)
   const [stats, setStats] = React.useState({ earningsToday: 0, completed: 0, rating: 4.9 })
   const socketRef = React.useRef(null)
   const [fromQuery, setFromQuery] = React.useState('')
@@ -40,16 +42,38 @@ export default function CaptainHome() {
       () => {},
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
     )
+    
+    // Check for active ride on component mount
+    const savedActiveRide = localStorage.getItem('captain_activeRide')
+    if (savedActiveRide) {
+      try {
+        const rideData = JSON.parse(savedActiveRide)
+        console.log('🔍 Found active ride on homepage:', rideData)
+        setContinueRideData(rideData)
+      } catch (error) {
+        console.error('❌ Failed to parse active ride data:', error)
+        localStorage.removeItem('captain_activeRide')
+      }
+    }
+    
     return () => { if (navigator.geolocation?.clearWatch && id) navigator.geolocation.clearWatch(id) }
   }, [])
 
   // socket connection
   React.useEffect(() => {
-    const s = io('http://localhost:3000')
-    socketRef.current = s
     const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-    // Optionally decode captain id from token on backend; here we only open connection
-    s.emit('registerCaptain', { captainId: 'self' })
+    const s = io('http://localhost:3000', { auth: { token } })
+    socketRef.current = s
+    
+    s.on('connect', () => {
+      console.log('✅ CaptainHome socket connected')
+      // Optionally decode captain id from token on backend; here we only open connection
+      s.emit('registerCaptain', { captainId: 'self' })
+    })
+    
+    s.on('connect_error', (error) => {
+      console.error('❌ CaptainHome socket connection failed:', error)
+    })
 
     s.on('rideRequest', (payload) => {
       // push incoming request to list
@@ -251,6 +275,7 @@ export default function CaptainHome() {
             <div style={{ fontWeight: 800, fontSize: 22 }}>RiderGo</div>
             <Link to="/captain/home" style={{ textDecoration: 'none', color: '#111', fontWeight: 600 }}>Home</Link>
             <Link to="/captain/rides" style={{ textDecoration: 'none', color: '#111', fontWeight: 600 }}>My Rides</Link>
+            <Link to="/captain/ride-history" style={{ textDecoration: 'none', color: '#111', fontWeight: 600 }}>Ride History</Link>
             <Link to="/captain/earnings" style={{ textDecoration: 'none', color: '#111', fontWeight: 600 }}>Earnings</Link>
             <Link style={{ textDecoration: 'none', color: '#111', fontWeight: 600 }}>Support</Link>
           </div>
@@ -308,6 +333,103 @@ export default function CaptainHome() {
               <button onClick={() => navigator.geolocation?.getCurrentPosition?.((p) => { setLat(p.coords.latitude); setLon(p.coords.longitude) })} style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontWeight: 600 }}>Center on me</button>
             </div>
           </div>
+
+          {/* Continue Active Ride */}
+          {continueRideData && (
+            <div style={{
+              ...section,
+              background: 'linear-gradient(135deg, #fef3c7 0%, #fbbf24 100%)',
+              border: '2px solid #f59e0b',
+              boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  background: '#f59e0b',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px'
+                }}>
+                  🚗
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 18, color: '#92400e' }}>
+                    Active Ride in Progress
+                  </div>
+                  <div style={{ color: '#b45309', fontSize: '14px' }}>
+                    You have an ongoing ride that you can continue
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ 
+                background: 'rgba(255, 255, 255, 0.8)', 
+                padding: '12px', 
+                borderRadius: '8px', 
+                marginBottom: '12px' 
+              }}>
+                <div style={{ fontSize: '14px', color: '#92400e', marginBottom: '8px' }}>
+                  <strong>Ride ID:</strong> {continueRideData.rideId}
+                </div>
+                <div style={{ fontSize: '14px', color: '#92400e', marginBottom: '8px' }}>
+                  <strong>Status:</strong> {continueRideData.rideStatus}
+                </div>
+                <div style={{ fontSize: '14px', color: '#92400e' }}>
+                  <strong>Started:</strong> {new Date(continueRideData.timestamp).toLocaleString()}
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => {
+                    // Use React Router navigate to avoid page refresh
+                    navigate(`/captain/live?rideId=${continueRideData.rideId}`)
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    background: '#16a34a',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  🚀 Continue Ride
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (confirm('Are you sure you want to cancel this active ride?')) {
+                      localStorage.removeItem('captain_activeRide')
+                      setContinueRideData(null)
+                    }
+                  }}
+                  style={{
+                    padding: '12px 16px',
+                    background: '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ❌
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Active ride */}
           <div style={section}>

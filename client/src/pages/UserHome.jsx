@@ -35,9 +35,35 @@ export default function UserHome() {
   const [pickupPoint, setPickupPoint] = React.useState(null) // {lat, lng, name}
   const [dropPoint, setDropPoint] = React.useState(null)
   const [isGettingLocation, setIsGettingLocation] = React.useState(false)
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false)
   const pickupTimerRef = React.useRef(null)
   const dropTimerRef = React.useRef(null)
   const navigate = useNavigate()
+
+  // Check if user is logged in
+  React.useEffect(() => {
+    const token = localStorage.getItem('token')
+    setIsLoggedIn(!!token)
+  }, [])
+
+  // Listen for storage changes to update login state
+  React.useEffect(() => {
+    const handleStorageChange = () => {
+      const token = localStorage.getItem('token')
+      setIsLoggedIn(!!token)
+    }
+
+    // Listen for storage events
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Also check on focus (when user comes back to tab)
+    window.addEventListener('focus', handleStorageChange)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('focus', handleStorageChange)
+    }
+  }, [])
 
   const searchPlaces = async (query) => {
     if (!query || query.trim().length < 3) return []
@@ -156,10 +182,22 @@ export default function UserHome() {
             <Link style={{ color: '#111', textDecoration: 'none', fontWeight: 600 }}>About</Link> */}
           </div>
           <div style={topRight}>
-            <Link to="/user/login" style={{ color: '#111', textDecoration: 'none', fontWeight: 600 }}>Log in</Link>
-            <Link to="/user/signup" style={{ textDecoration: 'none' }}>
-              <button style={topPrimary}>Sign up</button>
-            </Link>
+            {!isLoggedIn ? (
+              <>
+                <Link to="/user/login" style={{ color: '#111', textDecoration: 'none', fontWeight: 600 }}>Log in</Link>
+                <Link to="/user/signup" style={{ textDecoration: 'none' }}>
+                  <button style={topPrimary}>Sign up</button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/user/rides" style={{ color: '#111', textDecoration: 'none', fontWeight: 600 }}>My Rides</Link>
+                <Link to="/user/accepted-rides" style={{ color: '#111', textDecoration: 'none', fontWeight: 600 }}>My Bookings</Link>
+                <Link to="/user/profile" style={{ textDecoration: 'none' }}>
+                  <button style={topPrimary}>👤 Profile</button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -240,16 +278,16 @@ export default function UserHome() {
           </div>
         </section>
 
-        <aside>
-          <img
-            style={artImg}
-            src="https://images.unsplash.com/photo-1520763185298-1b434c919102?q=80&w=1600&auto=format&fit=crop"
-            alt="RiderGo ride illustration"
-            onError={(e) => {
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1570125909232-eb263c186922?q=80&w=1600&auto=format&fit=crop'
-            }}
-          />
-        </aside>
+<aside>
+  <img
+    style={artImg}
+    src="/rider-go.png"   // 👈 no /images, because file directly public me hai
+    alt="RiderGo ride illustration"
+    onError={(e) => {
+      e.currentTarget.src = '/rider-go.png'  
+    }}
+  />
+</aside>
       </div>
     </div>
   )

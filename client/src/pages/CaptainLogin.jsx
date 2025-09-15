@@ -18,7 +18,7 @@ export default function CaptainLogin() {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:3000/api/captain/login', {
+      const res = await fetch('http://localhost:3000/api/auth/captain/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

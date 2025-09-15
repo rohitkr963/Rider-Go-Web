@@ -10,7 +10,7 @@ export default function CaptainProfile() {
     async function load() {
       try {
         const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-        const res = await fetch('http://localhost:3000/api/captain/profile', {
+        const res = await fetch('http://localhost:3000/api/auth/captain/profile', {
           headers: { Authorization: `Bearer ${token}` },
         })
         const data = await res.json()
@@ -24,6 +24,7 @@ export default function CaptainProfile() {
   }, [])
 
   const Info = ({ label, value }) => (
+    
     <div><strong>{label}:</strong> {value ?? '-'}</div>
   )
 

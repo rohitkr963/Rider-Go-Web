@@ -18,7 +18,7 @@ export default function UserLogin() {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:3000/api/user/login', {
+      const res = await fetch('http://localhost:3000/api/auth/user/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -26,7 +26,18 @@ export default function UserLogin() {
       const data = await res.json()
       console.log('login response', res.status, data)
       if (!res.ok) throw new Error(data?.message || 'Login failed')
-      navigate('/user/home')
+      
+      // Store token and user info in localStorage
+      if (data.token) {
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('userEmail', email)
+        localStorage.setItem('userName', data.user?.name || 'User')
+        localStorage.setItem('userPhone', data.user?.phone || 'Not provided')
+        localStorage.setItem('userJoinDate', new Date().toLocaleDateString())
+      }
+      
+      // Force page reload to update UserHome state
+      window.location.href = '/user/home'
     } catch (err) {
       alert(err.message)
     } finally {

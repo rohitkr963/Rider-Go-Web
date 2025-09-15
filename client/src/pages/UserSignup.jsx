@@ -37,8 +37,17 @@ export default function UserSignup() {
       console.log('signup response', res.status, data)
       if (!res.ok) throw new Error(data?.message || 'Signup failed')
 
-      // signup success, navigate to user home
-      navigate('/user/home')
+      // Store token and user info in localStorage
+      if (data.token) {
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('userEmail', email.trim().toLowerCase())
+        localStorage.setItem('userName', name.trim())
+        localStorage.setItem('userPhone', data.user?.phone || 'Not provided')
+        localStorage.setItem('userJoinDate', new Date().toLocaleDateString())
+      }
+
+      // signup success, force page reload to update UserHome state
+      window.location.href = '/user/home'
     } catch (err) {
       alert(err.message)
     } finally {

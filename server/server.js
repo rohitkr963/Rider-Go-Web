@@ -13,6 +13,15 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+// Middleware to log all requests (moved to top)
+app.use((req, res, next) => {
+  console.log(`📡 ${req.method} ${req.path} - ${new Date().toISOString()}`)
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('📦 Request body:', JSON.stringify(req.body, null, 2))
+  }
+  next()
+})
+
 // Ensure fetch is available in Node (use undici if not present)
 if (typeof fetch === 'undefined') {
   try {
@@ -25,27 +34,56 @@ if (typeof fetch === 'undefined') {
 }
 
 // Connect MongoDB (prefer MONGO_URI, fall back to other vars or localhost)
-const mongoUrl = process.env.MONGO_URI || process.env.MONGODB_URL || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/ridergo'
+const mongoUrl = process.env.MONGO_URI || process.env.MONGODB_URL || process.env.MONGO_URL
 const dbName = process.env.DB_NAME || 'ridergo'
+
+if (!mongoUrl) {
+  console.error('❌ No MongoDB URL found in environment variables!')
+  console.error('Please check your .env file for MONGO_URI')
+  process.exit(1)
+}
+
 const redact = (u) => { if (!u) return u; try { return String(u).replace(/:\/\/.*@/, '://<credentials>@') } catch (e) { return '<redacted>' } }
-console.log('Connecting to Mongo:', redact(mongoUrl), ' DB=', dbName)
+console.log('🔄 Connecting to MongoDB:', redact(mongoUrl), ' DB=', dbName)
 mongoose
   .connect(mongoUrl, { dbName })
-  .then(() => console.log('MongoDB connected -', mongoose.connection.name))
+  .then(() => {
+    console.log('✅ MongoDB connected successfully!')
+    console.log('📄 Database name:', mongoose.connection.name)
+    console.log('🔗 Connection state:', mongoose.connection.readyState)
+  })
   .catch((err) => {
-    console.error('MongoDB connection error:', err && err.message ? err.message : err)
+    console.error('❌ MongoDB connection error:', err && err.message ? err.message : err)
+    console.error('🔍 Check your MongoDB URL and network connection')
     process.exit(1)
   })
 
-// Routes
+// Routes with logging
+console.log('🔄 Setting up routes...')
+
 const authRoutes = require('./routes/authRoutes')
-app.use('/api', authRoutes)
 const rideRoutes = require('./routes/rideRoutes')
+const acceptedRidesRoutes = require('./routes/acceptedRidesRoutes')
+const rideHistoryRoutes = require('./routes/rideHistoryRoutes')
+const userRoutes = require('./routes/userRoutes')
+
+app.use('/api/auth', authRoutes)
 app.use('/api', rideRoutes)
+app.use('/api/accepted-rides', acceptedRidesRoutes)
+app.use('/api/ride-history', rideHistoryRoutes)
+app.use('/api/user', userRoutes)
+console.log('✅ Accepted rides routes loaded at /api/accepted-rides')
+
+// Test route for accepted rides API
+app.get('/test-accepted-rides', (req, res) => {
+  console.log('🧪 Test endpoint called')
+  res.json({ message: 'Accepted rides API is working', timestamp: new Date() })
+})
 
 app.get('/', (_req, res) => {
   res.send('RiderGo server running')
 })
+
 
 // HTTP server + socket.io
 const server = http.createServer(app)
@@ -192,6 +230,181 @@ function emitMatches(socket) {
 }
 
 io.on('connection', (socket) => {
+  console.log('🔌 New socket connection:', socket.id)
+  
+  // Handle ride request from user
+  socket.on('ride:request', (payload) => {
+    console.log('📥 Ride request received:', payload)
+    console.log('👥 Backend received passenger count:', payload.passengerCount)
+    console.log('🔍 Full backend payload:', JSON.stringify(payload, null, 2))
+    // Broadcast to all captains
+    socket.broadcast.emit('ride:request', payload)
+  })
+
+  // Handle captain accept with seat validation
+  socket.on('ride:accept', async (payload) => {
+    console.log('✅ Captain accepted ride:', payload)
+    
+    try {
+      // Find the ride and validate seat availability
+      const ride = await require('./models/rideModel').findById(payload.rideId)
+      if (!ride) {
+        socket.emit('ride:rejected', { 
+          rideId: payload.rideId, 
+          userId: payload.userId,
+          reason: 'Ride not found' 
+        })
+        return
+      }
+
+      const requestedSeats = payload.passengerCount || 1
+
+      // Determine authoritative total seats: prefer ride.size -> captain.seatingCapacity -> fallback 4
+      let totalSeats = null
+      try {
+        if (typeof ride.size === 'number' && ride.size > 0) {
+          totalSeats = ride.size
+        } else if (ride.captainId) {
+          const capDoc = await Captain.findById(ride.captainId).select('seatingCapacity')
+          if (capDoc && typeof capDoc.seatingCapacity === 'number') totalSeats = capDoc.seatingCapacity
+        }
+      } catch (e) {
+        console.warn('[ride:accept] failed to resolve captain seatingCapacity:', e && e.message)
+      }
+      if (totalSeats == null) totalSeats = 4
+
+      const availableSeats = totalSeats - (ride.occupied || 0)
+
+      if (requestedSeats > availableSeats) {
+        // Not enough seats available
+        socket.emit('ride:rejected', { 
+          rideId: payload.rideId, 
+          userId: payload.userId,
+          reason: `Only ${availableSeats} seat${availableSeats !== 1 ? 's' : ''} available, but ${requestedSeats} requested` 
+        })
+        return
+      }
+
+  // Update ride with new seat count (clamp just in case)
+  ride.occupied = Math.min(totalSeats, (ride.occupied || 0) + requestedSeats)
+      await ride.save()
+
+      // Store accepted ride for captain's list
+      const captainId = payload.captainId
+      if (!global.acceptedRides) global.acceptedRides = {}
+      if (!global.acceptedRides[captainId]) global.acceptedRides[captainId] = []
+      
+      // Generate unique rideId if not provided
+      const generateUniqueRideId = () => {
+        const timestamp = Date.now()
+        const random = Math.random().toString(36).substring(2, 8)
+        const captainSuffix = captainId.substring(0, 4)
+        return `ride_${timestamp}_${random}_${captainSuffix}`
+      }
+
+      // Always generate unique acceptance ID for each ride acceptance
+      const uniqueAcceptanceId = `acceptance_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${captainId.substring(0, 4)}`
+
+      const acceptedRide = {
+        rideId: uniqueAcceptanceId,
+        originalRideId: payload.rideId,
+        userId: payload.userId,
+        userEmail: payload.userEmail,
+        pickup: payload.pickup || { lat: 0, lng: 0 },
+        destination: payload.destination || { lat: 0, lng: 0 },
+        passengerCount: requestedSeats,
+        fare: payload.fare,
+        distance: payload.distance,
+        duration: payload.duration,
+        timestamp: new Date().toISOString()
+      }
+      
+      global.acceptedRides[captainId].push(acceptedRide)
+
+      // Save accepted ride to database
+      console.log('💾 Saving accepted ride to database...')
+      try {
+        const AcceptedRide = require('./models/acceptedRideModel')
+        const dbRide = new AcceptedRide({
+          rideId: payload.rideId,  // Use original ride ID, not uniqueAcceptanceId
+          captainId: captainId,
+          userId: payload.userId || 'Unknown User',
+          userEmail: payload.userEmail || 'user@example.com',
+          passengerCount: requestedSeats,
+          pickup: {
+            lat: payload.pickup?.lat || 0,
+            lng: payload.pickup?.lng || 0,
+            name: payload.pickup?.name || 'Unknown pickup location'
+          },
+          destination: {
+            lat: payload.destination?.lat || 0,
+            lng: payload.destination?.lng || 0,
+            name: payload.destination?.name || 'Unknown destination'
+          },
+          fare: payload.fare || 50,
+          distance: payload.distance || 0,
+          duration: payload.duration || 0,
+          occupied: requestedSeats,
+          totalSeats: totalSeats,
+          status: 'accepted',
+          acceptedAt: new Date()
+        })
+        
+        await dbRide.save()
+        console.log('✅ Accepted ride saved to database successfully!')
+        console.log('📄 Saved ride ID:', dbRide._id)
+      } catch (dbError) {
+        console.error('❌ Error saving accepted ride to database:', dbError)
+      }
+
+      // Broadcast acceptance with updated seat info
+      const acceptPayload = {
+        ...payload,
+        ...acceptedRide,
+        occupied: ride.occupied,
+        size: totalSeats,
+        passengerCount: requestedSeats,
+        rideId: payload.rideId, // Use original rideId for user matching
+        originalRideId: payload.rideId,
+        acceptanceId: uniqueAcceptanceId // Keep unique ID for captain tracking
+      }
+
+      // Emit accepted event globally (for users) and to the captain's room for their UI
+      io.emit('ride:accepted', acceptPayload)
+
+      // If captain socket joined a room 'captain:<id>' emit the list there; else emit to current socket
+      try {
+        const captainRoom = `captain:${captainId}`
+        if (io.sockets.adapter.rooms.get(captainRoom)) {
+          io.to(captainRoom).emit('ride:accepted-list', global.acceptedRides[captainId])
+        } else {
+          socket.emit('ride:accepted-list', global.acceptedRides[captainId])
+        }
+      } catch (e) {
+        console.warn('[ride:accept] failed to emit accepted-list to captain room, falling back to socket.emit', e && e.message)
+        socket.emit('ride:accepted-list', global.acceptedRides[captainId])
+      }
+      
+  console.log(`✅ Ride accepted: ${requestedSeats} seats booked, ${ride.occupied}/${totalSeats} total occupied`)
+      console.log(`📋 Captain ${captainId} now has ${global.acceptedRides[captainId].length} accepted rides`)
+      
+    } catch (error) {
+      console.error('Error processing ride acceptance:', error)
+      socket.emit('ride:rejected', { 
+        rideId: payload.rideId, 
+        userId: payload.userId,
+        reason: 'Server error' 
+      })
+    }
+  })
+
+  // Handle captain reject
+  socket.on('ride:reject', (payload) => {
+    console.log('❌ Captain rejected ride:', payload)
+    // Broadcast rejection to all users
+    io.emit('ride:rejected', payload)
+  })
+
   // user searches captains for a route
   socket.on('user:route:search', (payload) => {
     socket.searchCriteria = {
@@ -267,14 +480,81 @@ io.on('connection', (socket) => {
   socket.on('registerCaptain', ({ captainId }) => {
     if (captainId) socket.join(`captain:${captainId}`)
   })
+
+  // Handle booking notifications from captain side
+  socket.on('booking:accept', async (data) => {
+    const { rideId, userId } = data || {}
+    if (!rideId || !userId) return
+    
+    try {
+      // Notify the user that their booking was accepted
+      io.to(`user:${userId}`).emit('booking:accepted', {
+        rideId,
+        message: 'Your booking has been accepted by the captain!'
+      })
+      
+      // Update ride status if needed
+      const Ride = require('./models/rideModel')
+      await Ride.findByIdAndUpdate(rideId, { status: 'ongoing' })
+      
+      console.log(`Captain accepted booking for ride ${rideId}, user ${userId}`)
+    } catch (error) {
+      console.error('Error handling booking acceptance:', error)
+    }
+  })
+
+  socket.on('booking:reject', async (data) => {
+    const { rideId, userId } = data || {}
+    if (!rideId || !userId) return
+    
+    try {
+      // Notify the user that their booking was rejected
+      io.to(`user:${userId}`).emit('booking:rejected', {
+        rideId,
+        message: 'Your booking was rejected. Please try another auto.'
+      })
+      
+      console.log(`Captain rejected booking for ride ${rideId}, user ${userId}`)
+    } catch (error) {
+      console.error('Error handling booking rejection:', error)
+    }
+  })
   // Allow clients to subscribe to a ride room
   socket.on('ride:subscribe', ({ rideId }) => {
-    if (rideId) socket.join(`ride:${rideId}`)
+    if (rideId) {
+      socket.join(`ride:${rideId}`)
+      console.log(`👤 Socket ${socket.id} joined ride room: ride:${rideId}`)
+    }
     // if we already have this ride active, send full info to the subscriber
     try {
       const r = activeRides.get(String(rideId))
       if (r) socket.emit('ride:info', r)
     } catch (e) { /* ignore */ }
+  })
+
+  // Handle user joining specific rooms
+  socket.on('join', (roomName) => {
+    if (roomName) {
+      socket.join(roomName)
+      console.log(`👤 Socket ${socket.id} joined room: ${roomName}`)
+    }
+  })
+
+  // Handle ride cancellation by user
+  socket.on('ride:cancelled', async (payload) => {
+    const { rideId, userId, acceptanceId, cancelledBy } = payload
+    console.log('🚫 Ride cancelled via socket:', payload)
+    
+    // Notify captain about cancellation
+    if (rideId) {
+      socket.to(`ride:${rideId}`).emit('ride:cancelled', payload)
+      
+      // Also notify captain's room specifically
+      const ride = await require('./models/rideModel').findById(rideId)
+      if (ride && ride.captainId) {
+        socket.to(`captain:${ride.captainId}`).emit('ride:cancelled', payload)
+      }
+    }
   })
   // Captain live location updates
   socket.on('location:update', async (data) => {
@@ -413,7 +693,11 @@ io.use((socket, next) => {
 
 const PORT = process.env.PORT || 3000
 server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`)
+  console.log(`🚀 Server listening on port ${PORT}`)
+  console.log(`🌐 Server URL: http://localhost:${PORT}`)
+  console.log(`🔗 Test endpoint: http://localhost:${PORT}/test-accepted-rides`)
+  console.log(`📊 Accepted rides API: http://localhost:${PORT}/api/accepted-rides`)
+  console.log('✅ Server startup complete!')
 })
 
 

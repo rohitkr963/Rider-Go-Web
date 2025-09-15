@@ -28,11 +28,30 @@ export default function UserRideLive() {
   const remainDashDirRef = React.useRef(1)
   const lastProgressIdxRef = React.useRef(-1)
 
+  const loc = useLocation()
+  const params = new URLSearchParams(loc.search)
+  const rideId = params.get('rideId') || 'demo'
+
   const [etaMin, setEtaMin] = React.useState(null)
   const [etaKm, setEtaKm] = React.useState(null)
   const [userStarted, setUserStarted] = React.useState(false)
-  const [rideStatus, setRideStatus] = React.useState({ originalSize: null, finalSize: null, occupied: 0 })
+  const [rideStatus, setRideStatus] = React.useState(() => {
+    // Try to load from localStorage first
+    const saved = localStorage.getItem(`user_rideStatus_${rideId}`)
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {
+        console.warn('Failed to parse saved ride status:', e)
+      }
+    }
+    return { originalSize: 4, finalSize: 4, occupied: 0 }
+  })
   const [showStatusPanel, setShowStatusPanel] = React.useState(false)
+    const [isBooking, setIsBooking] = React.useState(false)
+  const [bookingStatus, setBookingStatus] = React.useState(null) // 'success', 'error', 'full', 'pending', 'rejected'
+  const [hasBookedThisRide, setHasBookedThisRide] = React.useState(false)
+  const [passengerCount, setPassengerCount] = React.useState(1)
 
   const ensureMarkerStyles = React.useCallback(() => {
   if (typeof document === 'undefined' || !document.head) return
@@ -63,9 +82,6 @@ export default function UserRideLive() {
     }
   }, [])
 
-  const loc = useLocation()
-  const params = new URLSearchParams(loc.search)
-  const rideId = params.get('rideId') || 'demo'
   const fromLat = parseFloat(params.get('fromLat'))
   const fromLng = parseFloat(params.get('fromLng'))
   const toLat = parseFloat(params.get('toLat'))
@@ -88,7 +104,7 @@ export default function UserRideLive() {
         let size = (typeof ride.size === 'number') ? ride.size : null
         if (ride.captainId) {
           try {
-            const captainResponse = await fetch(`/api/captain/${ride.captainId}/seating`)
+            const captainResponse = await fetch(`http://localhost:3000/api/auth/captain/${ride.captainId}/seating`)
             if (captainResponse.ok) {
               const captainData = await captainResponse.json()
               if (typeof captainData.seatingCapacity === 'number') size = captainData.seatingCapacity
@@ -99,11 +115,11 @@ export default function UserRideLive() {
           }
         }
         
-        setRideStatus({
-          originalSize: (typeof ride.size === 'number') ? ride.size : null,
-          finalSize: (typeof size === 'number') ? size : null,
-          occupied: ride.occupied || 0
-        })
+        setRideStatus(prev => ({
+          originalSize: (typeof ride.size === 'number') ? ride.size : prev.originalSize,
+          finalSize: (typeof size === 'number') ? size : prev.finalSize,
+          occupied: (typeof ride.occupied === 'number') ? ride.occupied : prev.occupied
+        }))
 
         console.log('Fetched ride data:', {
           originalSize: ride.size,
@@ -253,6 +269,12 @@ export default function UserRideLive() {
   const animateTo = animateCaptain
 
   React.useEffect(() => {
+    const mapElement = document.getElementById('user-live')
+    if (!mapElement) {
+      console.error('Map container element not found')
+      return
+    }
+    
     const map = L.map('user-live', { zoomControl: true })
     mapRef.current = map
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map)
@@ -269,24 +291,42 @@ export default function UserRideLive() {
           const coords = json?.routes?.[0]?.geometry?.coordinates || []
           const latlngs = coords.map(c => [c[1], c[0]])
           if (userRouteRef.current) map.removeLayer(userRouteRef.current)
-          userRouteRef.current = L.polyline(latlngs, { color: '#3b82f6', weight: 4 }).addTo(map)
+          if (map && map._container) {
+            userRouteRef.current = L.polyline(latlngs, { color: '#3b82f6', weight: 4 }).addTo(map)
+          }
 
           const userIcon = L.divIcon({ className: '', html: `<div class="user-marker"><div class="user-label">USER</div></div>`, iconSize: [100, 28], iconAnchor: [50, 14] })
-          if (!userMarkerRef.current) userMarkerRef.current = L.marker([fromLat, fromLng], { icon: userIcon, interactive: false }).addTo(map)
+          if (!userMarkerRef.current && map && map._container) {
+            userMarkerRef.current = L.marker([fromLat, fromLng], { icon: userIcon, interactive: false }).addTo(map)
+          }
 
-          if (toLat && toLng) L.marker([toLat, toLng]).addTo(map).bindPopup('Destination')
+          if (toLat && toLng && map && map._container) {
+            L.marker([toLat, toLng]).addTo(map).bindPopup('Destination')
+          }
           ensureMarkerStyles()
         })
     } else animateCaptain(start)
 
-    return () => map.remove()
+    return () => {
+      if (map && map._container) {
+        map.remove()
+      }
+    }
   }, [fromLat, fromLng, toLat, toLng, animateCaptain, ensureMarkerStyles])
 
   React.useEffect(() => {
     const token = localStorage.getItem('token') || localStorage.getItem('captain_token')
     const s = io('http://localhost:3000', { auth: { token } })
     socketRef.current = s
+    
+    // Join ride room for real-time updates
     s.emit('ride:subscribe', { rideId })
+    
+    // Also join user-specific room for booking responses
+    const userId = localStorage.getItem('userId') || 'user123'
+    s.emit('join', `user:${userId}`)
+    
+    console.log('🔌 User socket connected, joining ride room:', rideId)
 
     // Create a temporary placeholder CAPTAIN marker so user sees captain immediately
     try {
@@ -338,34 +378,112 @@ export default function UserRideLive() {
       setEtaMin(Math.max(1, Math.round((payload?.duration || 0)/60)))
     })
 
-    // Listen for ride accepted event to refresh data
+    // Listen for ride accepted event - update from socket data only, don't refetch API
     s.on('ride:accepted', payload => {
       if (payload?.rideId === rideId) {
-        console.log('Ride accepted, refreshing data...')
-        fetchRideData()
+        console.log('Ride accepted via socket:', payload)
+        if (typeof payload.occupied === 'number' && typeof payload.size === 'number') {
+          const newStatus = {
+            ...rideStatus,
+            occupied: payload.occupied,
+            finalSize: payload.size
+          }
+          setRideStatus(newStatus)
+          // Persist to localStorage
+          localStorage.setItem(`user_rideStatus_${rideId}`, JSON.stringify(newStatus))
+        }
+      }
+    })
+
+    // Listen for ride start event - when captain starts the ride
+    s.on('ride:info', payload => {
+      if (payload?.rideId === rideId && payload?.status === 'active') {
+        console.log('🚗 Captain started the ride:', payload)
+        // Check if current user has booked this ride
+        const currentUserEmail = localStorage.getItem('userEmail')
+        const hasBooked = localStorage.getItem(`booked_${rideId}_${currentUserEmail}`) === 'true'
+        
+        if (hasBooked) {
+          console.log('✅ User has booked this ride - showing already booked message')
+          setHasBookedThisRide(true)
+        }
       }
     })
 
     // Listen for ride status updates (occupancy changes)
     s.on('ride-status-updated', payload => {
+      console.log('🔄 User received ride-status-updated:', payload)
       if (payload?.rideId === rideId) {
         setRideStatus(prev => {
           // payload.size is authoritative final size when present
           const finalSize = (typeof payload.size === 'number') ? payload.size : (typeof prev.finalSize === 'number' ? prev.finalSize : null)
           const occupied = (typeof payload.occupied === 'number') ? payload.occupied : (typeof prev.occupied === 'number' ? prev.occupied : 0)
 
-          console.log('Socket update received:', {
+          console.log('✅ User socket update received:', {
+            rideId: payload.rideId,
             occupied: occupied,
             finalSize: finalSize,
-            previousFinal: prev.finalSize
+            previousFinal: prev.finalSize,
+            previousOccupied: prev.occupied
           })
 
-          return {
+          const newStatus = {
             ...prev,
             occupied,
             finalSize
           }
+
+          // Persist to localStorage
+          localStorage.setItem(`user_rideStatus_${rideId}`, JSON.stringify(newStatus))
+
+          return newStatus
         })
+      } else {
+        console.log('❌ Ride ID mismatch:', payload?.rideId, 'vs expected:', rideId)
+      }
+    })
+
+    // Listen for captain accept/reject responses
+    s.on('ride:accepted', payload => {
+      if (payload?.rideId === rideId) {
+        console.log('✅ Received ride:accepted for rideId:', rideId, 'payload:', payload)
+        setBookingStatus('success')
+        setIsBooking(false)
+        setHasBookedThisRide(true)
+        // Store booking status in localStorage (user-specific)
+        const currentUserEmail = localStorage.getItem('userEmail')
+        localStorage.setItem(`booked_${rideId}_${currentUserEmail}`, 'true')
+        localStorage.setItem(`bookingStatus_${rideId}_${currentUserEmail}`, 'success')
+        // Use the exact occupied count from captain's payload instead of incrementing
+        setRideStatus(prev => ({
+          ...prev,
+          occupied: (typeof payload.occupied === 'number') ? payload.occupied : prev.occupied,
+          finalSize: (typeof payload.size === 'number') ? payload.size : prev.finalSize
+        }))
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => {
+          setBookingStatus(null)
+          localStorage.removeItem(`bookingStatus_${rideId}_${currentUserEmail}`)
+        }, 3000)
+      }
+    })
+
+    s.on('ride:rejected', payload => {
+      if (payload?.rideId === rideId) {
+        setBookingStatus('rejected')
+        setIsBooking(false)
+        // Auto-hide rejection message after 5 seconds
+        setTimeout(() => setBookingStatus(null), 5000)
+      }
+    })
+
+    // Listen for booking errors (full auto, etc)
+    s.on('ride:booking-error', payload => {
+      if (payload?.rideId === rideId) {
+        setBookingStatus(payload.reason === 'full' ? 'full' : 'error')
+        setIsBooking(false)
+        // Auto-hide error message after 5 seconds
+        setTimeout(() => setBookingStatus(null), 5000)
       }
     })
 
@@ -378,10 +496,79 @@ export default function UserRideLive() {
     }
   }, [rideId, animateCaptain, ensureMarkerStyles, fromLat, fromLng, fetchRideData])
 
-  // Fetch initial ride data on mount
+
+  // Fetch initial ride data on mount and check booking status
   React.useEffect(() => {
     fetchRideData()
-  }, [fetchRideData])
+    // Check if current user has already booked this ride (user-specific)
+    const currentUserEmail = localStorage.getItem('userEmail')
+    const hasBooked = localStorage.getItem(`booked_${rideId}_${currentUserEmail}`) === 'true'
+    setHasBookedThisRide(hasBooked)
+    
+    // Also check booking status from localStorage
+    const savedBookingStatus = localStorage.getItem(`bookingStatus_${rideId}_${currentUserEmail}`)
+    if (savedBookingStatus && hasBooked) {
+      setBookingStatus(savedBookingStatus)
+    }
+  }, [fetchRideData, rideId])
+
+  // Book Auto function - now waits for captain accept/reject
+  const handleBookAuto = React.useCallback(async () => {
+    if (isBooking) return
+    
+    console.log('🚀 handleBookAuto called with passengerCount:', passengerCount)
+    
+    // Validate seat availability before booking
+    const availableSeats = rideStatus.finalSize - rideStatus.occupied
+    if (passengerCount > availableSeats) {
+      alert(`❌ Only ${availableSeats} seat${availableSeats !== 1 ? 's' : ''} available. Please select ${availableSeats} or fewer passengers.`)
+      return
+    }
+    
+    setIsBooking(true)
+    setBookingStatus('pending')
+    
+    try {
+      const token = localStorage.getItem('token')
+      const userId = localStorage.getItem('userId') || 'user123'
+      
+      // Send booking request via socket instead of API
+      if (socketRef.current) {
+        const requestData = {
+          rideId,
+          userId,
+          pickup: { lat: fromLat, lng: fromLng },
+          destination: { lat: toLat, lng: toLng },
+          passengerCount: passengerCount
+        }
+        socketRef.current.emit('ride:request', requestData)
+        console.log('🚀 User sending ride request:', requestData)
+        console.log('🔌 User socket ID:', socketRef.current.id)
+        console.log('👥 Passenger count being sent:', passengerCount)
+        alert(`Booking request sent for ${passengerCount} passenger${passengerCount > 1 ? 's' : ''}! RideId: ${rideId}, UserId: ${userId}, PassengerCount: ${passengerCount}`)
+      } else {
+        // Fallback to API if socket not available
+        const response = await fetch(`/api/ride/${rideId}/book`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` })
+          },
+          body: JSON.stringify({ rideId })
+        })
+        
+        const data = await response.json()
+        if (!response.ok) {
+          setBookingStatus(data.message === 'Seat not available' ? 'full' : 'error')
+          setIsBooking(false)
+        }
+      }
+    } catch (error) {
+      console.error('Booking error:', error)
+      setBookingStatus('error')
+      setIsBooking(false)
+    }
+  }, [isBooking, passengerCount, rideStatus.finalSize, rideStatus.occupied, rideId, fromLat, fromLng, toLat, toLng])
 
   const onStartClick = React.useCallback(() => {
     const map = mapRef.current
@@ -445,13 +632,14 @@ export default function UserRideLive() {
     setUserStarted(true)
   }, [ensureMarkerStyles, animateTo])
 
-  // Seat calculations for UI
-  // finalSize is authoritative when present, otherwise fall back to originalSize
-  const seats = (typeof rideStatus.finalSize === 'number') ? rideStatus.finalSize : (typeof rideStatus.originalSize === 'number' ? rideStatus.originalSize : null)
-  const occupied = (typeof rideStatus.occupied === 'number') ? rideStatus.occupied : 0
-  // If seats is null (unknown) show 6 black placeholders
-  const seatCount = seats ?? 6
-  const availableCount = (seats !== null) ? (seats - occupied) : null
+  // Seat calculations for UI with proper fallbacks
+  // finalSize is authoritative when present, otherwise fall back to originalSize, then default to 4
+  const seats = (typeof rideStatus.finalSize === 'number' && rideStatus.finalSize > 0) ? rideStatus.finalSize : 
+               (typeof rideStatus.originalSize === 'number' && rideStatus.originalSize > 0) ? rideStatus.originalSize : 4
+  const occupied = (typeof rideStatus.occupied === 'number' && rideStatus.occupied >= 0) ? rideStatus.occupied : 0
+  // Always show proper seat count, never null
+  const seatCount = seats
+  const availableCount = Math.max(0, seats - occupied)
 
   return (
     <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
@@ -509,7 +697,7 @@ export default function UserRideLive() {
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>{seats !== null ? seats : '—'}</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>{seats}</div>
                   <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seats</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
@@ -517,7 +705,7 @@ export default function UserRideLive() {
                   <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Occupied</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#16a34a' }}>{availableCount !== null ? availableCount : '—'}</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#16a34a' }}>{availableCount}</div>
                   <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Available</div>
                 </div>
               </div>
@@ -525,22 +713,151 @@ export default function UserRideLive() {
               <div style={{ 
                 marginTop: '16px', 
                 padding: '12px', 
-                background: (availableCount !== null && availableCount > 0) ? '#f0fdf4' : (availableCount === 0 ? '#fef2f2' : '#fffaf0'),
-                border: `1px solid ${ (availableCount !== null && availableCount > 0) ? '#bbf7d0' : (availableCount === 0 ? '#fecaca' : '#f5e1a4') }`,
+                background: (availableCount > 0) ? '#f0fdf4' : (availableCount === 0 ? '#fef2f2' : '#fffaf0'),
+                border: `1px solid ${ (availableCount > 0) ? '#bbf7d0' : (availableCount === 0 ? '#fecaca' : '#f5e1a4') }`,
                 borderRadius: '8px',
                 textAlign: 'center'
               }}>
                 <div style={{ 
                   fontSize: '14px', 
                   fontWeight: '600',
-                  color: (availableCount !== null && availableCount > 0) ? '#166534' : '#b45309'
+                  color: (availableCount > 0) ? '#166534' : '#b45309'
                 }}>
-                  {availableCount !== null 
-                    ? (availableCount > 0 ? `✅ ${availableCount} seat${availableCount > 1 ? 's' : ''} available` : '❌ Auto is full')
-                    : '⚠️ Seat info unavailable'
+                  {availableCount > 0 
+                    ? `✅ ${availableCount} seat${availableCount > 1 ? 's' : ''} available`
+                    : '❌ Auto is full'
                   }
                 </div>
               </div>
+
+              {/* Passenger Count Selector */}
+              {!hasBookedThisRide && availableCount > 0 && (
+                <div style={{ marginTop: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '8px'
+                  }}>
+                    👥 Number of Passengers:
+                  </label>
+                  <select
+                    value={passengerCount}
+                    onChange={(e) => setPassengerCount(parseInt(e.target.value))}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '2px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      background: 'white',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {[1, 2, 3, 4].filter(count => count <= availableCount).map(count => (
+                      <option key={count} value={count}>
+                        {count} passenger{count > 1 ? 's' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Book Auto Button */}
+              <div style={{ marginTop: '16px' }}>
+                {hasBookedThisRide ? (
+                  <div style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: '#f0fdf4',
+                    color: '#166534',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    textAlign: 'center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}>
+                    ✅ You have already booked this auto
+                  </div>
+                ) : availableCount !== null && availableCount > 0 ? (
+                  <button
+                    onClick={handleBookAuto}
+                    disabled={isBooking}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      background: isBooking ? '#9ca3af' : '#16a34a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      fontWeight: '700',
+                      cursor: isBooking ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    {isBooking ? '⏳ Booking...' : `🚖 Book Auto (${passengerCount} passenger${passengerCount > 1 ? 's' : ''})`}
+                  </button>
+                ) : availableCount === 0 ? (
+                  <div style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    border: '1px solid #fecaca',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    textAlign: 'center'
+                  }}>
+                    ❌ Seat not available, please wait some time or see another auto
+                  </div>
+                ) : (
+                  <div style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: '#fffaf0',
+                    color: '#b45309',
+                    border: '1px solid #f5e1a4',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    textAlign: 'center'
+                  }}>
+                    ⚠️ Checking availability...
+                  </div>
+                )}
+              </div>
+
+              {/* Booking Status Messages */}
+              {bookingStatus && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  textAlign: 'center',
+                  background: bookingStatus === 'success' ? '#f0fdf4' : bookingStatus === 'pending' ? '#fffaf0' : '#fef2f2',
+                  color: bookingStatus === 'success' ? '#166534' : bookingStatus === 'pending' ? '#b45309' : '#dc2626',
+                  border: `1px solid ${bookingStatus === 'success' ? '#bbf7d0' : bookingStatus === 'pending' ? '#f5e1a4' : '#fecaca'}`
+                }}>
+                  {bookingStatus === 'success' && '✅ Booking confirmed! You have reserved a seat.'}
+                  {bookingStatus === 'pending' && '⏳ Waiting for captain response...'}
+                  {bookingStatus === 'rejected' && '❌ Captain rejected your request. Please try another auto.'}
+                  {bookingStatus === 'full' && '❌ Auto is full! Please try another auto.'}
+                  {bookingStatus === 'error' && '❌ Booking failed. Please try again.'}
+                </div>
+              )}
 
               {/* Visual seat grid: if size unknown show black seats (placeholder) */}
               <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -555,6 +872,30 @@ export default function UserRideLive() {
                     <div key={i} style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: color, border: '1px solid rgba(0,0,0,0.08)' }} />
                   )
                 })}
+              </div>
+
+              {/* My Booked Rides Button */}
+              <div style={{ marginTop: '16px' }}>
+                <button
+                  onClick={() => window.location.href = '/user/accepted-rides'}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  🎫 My Booked Rides
+                </button>
               </div>
             </div>
           )}

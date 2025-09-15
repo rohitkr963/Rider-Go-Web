@@ -22,6 +22,9 @@ router.get('/captain/earnings', requireCaptain, captainEarnings)
 // Captain updates occupancy for a ride
 router.patch('/ride/:id/occupancy', requireCaptain, updateOccupancy)
 
+// User books a seat in a ride
+router.post('/ride/:id/book', require('../controllers/rideController').bookRide)
+
 module.exports = router
 
 

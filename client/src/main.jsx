@@ -16,6 +16,10 @@ import CaptainEarnings from './pages/CaptainEarnings.jsx'
 import CaptainLive from './pages/CaptainLive.jsx'
 import UserRideLive from './pages/UserRideLive.jsx'
 import UserRideList from './pages/UserRideList.jsx'
+import AcceptedRidesList from './pages/AcceptedRidesList.jsx'
+import RideHistory from './pages/RideHistory.jsx'
+import UserProfile from './pages/UserProfile.jsx'
+import UserAcceptedRides from './pages/UserAcceptedRides.jsx'
 
 const router = createBrowserRouter([
   {
@@ -33,8 +37,12 @@ const router = createBrowserRouter([
       { path: 'captain/earnings', element: <CaptainEarnings /> },
   { path: 'captain/profile', element: <CaptainProfile /> },
   { path: 'captain/live', element: <CaptainLive /> },
+      { path: 'accepted-rides', element: <AcceptedRidesList /> },
+      { path: 'captain/ride-history', element: <RideHistory /> },
       { path: 'user/ride-live', element: <UserRideLive /> },
       { path: 'user/rides', element: <UserRideList /> },
+      { path: 'user/accepted-rides', element: <UserAcceptedRides /> },
+      { path: 'user/profile', element: <UserProfile /> },
     ],
   },
 ])
