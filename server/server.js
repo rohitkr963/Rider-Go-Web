@@ -66,18 +66,41 @@ const rideRoutes = require('./routes/rideRoutes')
 const acceptedRidesRoutes = require('./routes/acceptedRidesRoutes')
 const rideHistoryRoutes = require('./routes/rideHistoryRoutes')
 const userRoutes = require('./routes/userRoutes')
+const notificationRoutes = require('./routes/notificationRoutes')
 
 app.use('/api/auth', authRoutes)
 app.use('/api', rideRoutes)
 app.use('/api/accepted-rides', acceptedRidesRoutes)
 app.use('/api/ride-history', rideHistoryRoutes)
 app.use('/api/user', userRoutes)
+app.use('/api', notificationRoutes)
 console.log('✅ Accepted rides routes loaded at /api/accepted-rides')
 
 // Test route for accepted rides API
-app.get('/test-accepted-rides', (req, res) => {
+app.get('/test-accepted-rides', async (req, res) => {
   console.log('🧪 Test endpoint called')
-  res.json({ message: 'Accepted rides API is working', timestamp: new Date() })
+  try {
+    const AcceptedRide = require('./models/acceptedRideModel')
+    const allRides = await AcceptedRide.find({}).limit(10)
+    console.log('🧪 Found rides in database:', allRides.length)
+    res.json({ 
+      message: 'Accepted rides API is working', 
+      timestamp: new Date(),
+      sampleRides: allRides.map(ride => ({
+        rideId: ride.rideId,
+        captainId: ride.captainId,
+        userId: ride.userId,
+        acceptedAt: ride.acceptedAt
+      }))
+    })
+  } catch (error) {
+    console.error('🧪 Test endpoint error:', error)
+    res.json({ 
+      message: 'Accepted rides API test failed', 
+      error: error.message,
+      timestamp: new Date() 
+    })
+  }
 })
 
 app.get('/', (_req, res) => {
@@ -233,15 +256,16 @@ io.on('connection', (socket) => {
   console.log('🔌 New socket connection:', socket.id)
   
   // Handle ride request from user
-  socket.on('ride:request', (payload) => {
+  socket.on('ride:request', async (payload) => {
     console.log('📥 Ride request received:', payload)
     console.log('👥 Backend received passenger count:', payload.passengerCount)
     console.log('🔍 Full backend payload:', JSON.stringify(payload, null, 2))
-    // Broadcast to all captains
+    
+    // Broadcast to all captains first
     socket.broadcast.emit('ride:request', payload)
   })
 
-  // Handle captain accept with seat validation
+  // Handle captain accept with seat validation and multiple passenger support
   socket.on('ride:accept', async (payload) => {
     console.log('✅ Captain accepted ride:', payload)
     
@@ -285,25 +309,113 @@ io.on('connection', (socket) => {
         return
       }
 
-  // Update ride with new seat count (clamp just in case)
-  ride.occupied = Math.min(totalSeats, (ride.occupied || 0) + requestedSeats)
+      // Add passenger to the passengers array for carpooling support
+      const newPassenger = {
+        userId: payload.userId || 'Unknown User',
+        userEmail: payload.userEmail || 'user@example.com',
+        pickup: {
+          lat: payload.pickup?.lat || 0,
+          lng: payload.pickup?.lng || 0,
+          name: payload.pickup?.name || 'Pickup Location'
+        },
+        destination: {
+          lat: payload.destination?.lat || 0,
+          lng: payload.destination?.lng || 0,
+          name: payload.destination?.name || 'Destination'
+        },
+        passengerCount: requestedSeats,
+        fare: payload.fare || 50,
+        status: 'waiting',
+        bookedAt: new Date()
+      }
+
+      // Initialize passengers array if it doesn't exist
+      if (!ride.passengers) {
+        ride.passengers = []
+      }
+
+      // Add the new passenger
+      ride.passengers.push(newPassenger)
+
+      // Update ride with new seat count (clamp just in case)
+      ride.occupied = Math.min(totalSeats, (ride.occupied || 0) + requestedSeats)
       await ride.save()
 
-      // Store accepted ride for captain's list
-      const captainId = payload.captainId
+      console.log(`🚗 Added passenger to ride. Total passengers: ${ride.passengers.length}, Occupied seats: ${ride.occupied}/${totalSeats}`)
+
+      // Get real captain MongoDB _id from database
+      const Captain = require('./models/captainModel')
+      let captainRecord = null
+      let realCaptainId = null
+      
+      // First try to find captain by the custom captainId in payload
+      const customCaptainId = payload.captainId
+      
+      // Try to find captain by token or stored captain_id
+      const token = socket.handshake.auth?.token
+      if (token) {
+        try {
+          const jwt = require('jsonwebtoken')
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret_change_me')
+          if (decoded.id) {
+            captainRecord = await Captain.findById(decoded.id)
+            realCaptainId = decoded.id
+            console.log('✅ Found captain by token:', realCaptainId)
+          }
+        } catch (tokenError) {
+          console.warn('❌ Token verification failed:', tokenError.message)
+        }
+      }
+      
+      // If not found by token, try to find by custom ID or create new record
+      if (!captainRecord) {
+        captainRecord = await Captain.findOne({
+          $or: [
+            { email: customCaptainId },
+            { contact: customCaptainId }
+          ]
+        })
+        
+        if (captainRecord) {
+          realCaptainId = captainRecord._id.toString()
+          console.log('✅ Found existing captain:', realCaptainId)
+        } else {
+          // Create new captain record with real MongoDB _id
+          try {
+            captainRecord = new Captain({
+              name: payload.captainName || 'Captain',
+              email: payload.captainEmail || `captain_${Date.now()}@example.com`,
+              password: 'temp_password',
+              contact: payload.captainPhone || '0000000000',
+              vehicleType: payload.vehicleType || 'Car',
+              vehicleNumber: payload.vehicleNumber || 'Unknown',
+              seatingCapacity: payload.vehicleSize || 4,
+              status: 'online'
+            })
+            await captainRecord.save()
+            realCaptainId = captainRecord._id.toString()
+            console.log('✅ Created new captain with _id:', realCaptainId)
+          } catch (createError) {
+            console.warn('❌ Failed to create captain record:', createError.message)
+            realCaptainId = customCaptainId // fallback
+          }
+        }
+      }
+      
       if (!global.acceptedRides) global.acceptedRides = {}
-      if (!global.acceptedRides[captainId]) global.acceptedRides[captainId] = []
+      const finalCaptainId = realCaptainId || captainId
+      if (!global.acceptedRides[finalCaptainId]) global.acceptedRides[finalCaptainId] = []
       
       // Generate unique rideId if not provided
       const generateUniqueRideId = () => {
         const timestamp = Date.now()
         const random = Math.random().toString(36).substring(2, 8)
-        const captainSuffix = captainId.substring(0, 4)
+        const captainSuffix = finalCaptainId.substring(0, 4)
         return `ride_${timestamp}_${random}_${captainSuffix}`
       }
 
       // Always generate unique acceptance ID for each ride acceptance
-      const uniqueAcceptanceId = `acceptance_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${captainId.substring(0, 4)}`
+      const uniqueAcceptanceId = `acceptance_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${finalCaptainId.substring(0, 4)}`
 
       const acceptedRide = {
         rideId: uniqueAcceptanceId,
@@ -319,15 +431,16 @@ io.on('connection', (socket) => {
         timestamp: new Date().toISOString()
       }
       
-      global.acceptedRides[captainId].push(acceptedRide)
+      global.acceptedRides[finalCaptainId].push(acceptedRide)
 
       // Save accepted ride to database
       console.log('💾 Saving accepted ride to database...')
       try {
         const AcceptedRide = require('./models/acceptedRideModel')
         const dbRide = new AcceptedRide({
-          rideId: payload.rideId,  // Use original ride ID, not uniqueAcceptanceId
-          captainId: captainId,
+          rideId: uniqueAcceptanceId,  // Use unique acceptance ID for consistency
+          originalRideId: payload.rideId,  // Store original ride ID for reference
+          captainId: finalCaptainId,
           userId: payload.userId || 'Unknown User',
           userEmail: payload.userEmail || 'user@example.com',
           passengerCount: requestedSeats,
@@ -357,7 +470,7 @@ io.on('connection', (socket) => {
         console.error('❌ Error saving accepted ride to database:', dbError)
       }
 
-      // Broadcast acceptance with updated seat info
+      // Broadcast acceptance with updated seat info and passenger data
       const acceptPayload = {
         ...payload,
         ...acceptedRide,
@@ -366,27 +479,96 @@ io.on('connection', (socket) => {
         passengerCount: requestedSeats,
         rideId: payload.rideId, // Use original rideId for user matching
         originalRideId: payload.rideId,
-        acceptanceId: uniqueAcceptanceId // Keep unique ID for captain tracking
+        acceptanceId: uniqueAcceptanceId, // Keep unique ID for captain tracking
+        passengers: ride.passengers, // Include all passengers for carpooling
+        totalPassengers: ride.passengers.length
       }
 
       // Emit accepted event globally (for users) and to the captain's room for their UI
       io.emit('ride:accepted', acceptPayload)
 
+      // 🔔 Send notification to user about ride acceptance
+      const targetUserId = payload.userId
+      if (targetUserId) {
+        try {
+          const Notification = require('./models/notificationModel')
+          
+          console.log('🔔 Sending notification to userId:', targetUserId)
+          console.log('🔔 Payload pickup:', payload.pickup)
+          console.log('🔔 Payload destination:', payload.destination)
+          console.log('🔔 Payload pickupName:', payload.pickupName)
+          console.log('🔔 Payload destinationName:', payload.destinationName)
+
+          // Get captain info for notification
+          let captainName = 'Captain'
+          try {
+            if (socket.user?.id) {
+              const captainDoc = await Captain.findById(socket.user.id).select('name')
+              captainName = captainDoc?.name || 'Captain'
+            }
+          } catch (e) {
+            console.warn('Could not fetch captain name:', e.message)
+          }
+
+          const notificationData = {
+            userId: targetUserId,
+            type: 'rideAccepted',
+            message: `🎉 Your ride has been accepted! ${captainName} is on the way.`,
+            rideId: payload.rideId,
+            data: {
+              captainName: captainName,
+              pickup: payload.pickup?.name || payload.pickupName || ride.pickup || 'Pickup location',
+              destination: payload.destination?.name || payload.destinationName || ride.drop || 'Destination',
+              passengerCount: payload.passengerCount || 1,
+              estimatedFare: payload.estimatedFare || payload.fare || 0
+            }
+          }
+
+          // Save to database
+          const savedNotification = await Notification.create(notificationData)
+          console.log('✅ Notification saved to database with ID:', savedNotification._id)
+
+          // Emit real-time notification
+          const notificationPayload = {
+            ...notificationData,
+            timestamp: Date.now()
+          }
+          
+          // Emit to all sockets - user will filter by userId
+          io.emit('notification', notificationPayload)
+          console.log(`🔔 Notification broadcasted for user: ${targetUserId}`)
+          
+        } catch (notificationError) {
+          console.error('❌ Notification error:', notificationError.message)
+        }
+      } else {
+        console.log('❌ No userId in payload for notification')
+      }
+
+      // Emit updated ride data to captain for live map updates with pickup points
+      io.to(`captain:${finalCaptainId}`).emit('ride:passengers-updated', {
+        rideId: payload.rideId,
+        passengers: ride.passengers,
+        occupied: ride.occupied,
+        size: totalSeats,
+        message: `New passenger added! Total: ${ride.passengers.length} passengers`
+      })
+
       // If captain socket joined a room 'captain:<id>' emit the list there; else emit to current socket
       try {
-        const captainRoom = `captain:${captainId}`
+        const captainRoom = `captain:${finalCaptainId}`
         if (io.sockets.adapter.rooms.get(captainRoom)) {
-          io.to(captainRoom).emit('ride:accepted-list', global.acceptedRides[captainId])
+          io.to(captainRoom).emit('ride:accepted-list', global.acceptedRides[finalCaptainId])
         } else {
-          socket.emit('ride:accepted-list', global.acceptedRides[captainId])
+          socket.emit('ride:accepted-list', global.acceptedRides[finalCaptainId])
         }
       } catch (e) {
         console.warn('[ride:accept] failed to emit accepted-list to captain room, falling back to socket.emit', e && e.message)
-        socket.emit('ride:accepted-list', global.acceptedRides[captainId])
+        socket.emit('ride:accepted-list', global.acceptedRides[finalCaptainId])
       }
       
   console.log(`✅ Ride accepted: ${requestedSeats} seats booked, ${ride.occupied}/${totalSeats} total occupied`)
-      console.log(`📋 Captain ${captainId} now has ${global.acceptedRides[captainId].length} accepted rides`)
+      console.log(`📋 Captain ${finalCaptainId} now has ${global.acceptedRides[finalCaptainId].length} accepted rides`)
       
     } catch (error) {
       console.error('Error processing ride acceptance:', error)
@@ -487,16 +669,29 @@ io.on('connection', (socket) => {
     if (!rideId || !userId) return
     
     try {
-      // Notify the user that their booking was accepted
-      io.to(`user:${userId}`).emit('booking:accepted', {
-        rideId,
-        message: 'Your booking has been accepted by the captain!'
-      })
-      
+      // Standardized notification payload (persist + emit)
+      const payload = {
+        type: 'rideAccepted',
+        rideId: String(rideId),
+        message: 'Your booking has been accepted by the captain!',
+        timestamp: Date.now(),
+      }
+
+      // Emit to user room a standardized 'notification' event (clients listen for this)
+      io.to(`user:${userId}`).emit('notification', payload)
+
+      // Persist notification to DB (best-effort)
+      try {
+        const Notification = require('./models/notificationModel')
+        await Notification.create({ userId, type: payload.type, message: payload.message, rideId: payload.rideId, timestamp: new Date(payload.timestamp) })
+      } catch (saveErr) {
+        console.warn('Failed to save notification to DB (socket booking accept):', saveErr)
+      }
+
       // Update ride status if needed
       const Ride = require('./models/rideModel')
       await Ride.findByIdAndUpdate(rideId, { status: 'ongoing' })
-      
+
       console.log(`Captain accepted booking for ride ${rideId}, user ${userId}`)
     } catch (error) {
       console.error('Error handling booking acceptance:', error)
@@ -508,12 +703,21 @@ io.on('connection', (socket) => {
     if (!rideId || !userId) return
     
     try {
-      // Notify the user that their booking was rejected
-      io.to(`user:${userId}`).emit('booking:rejected', {
-        rideId,
-        message: 'Your booking was rejected. Please try another auto.'
-      })
-      
+      const payload = {
+        type: 'rideRejected',
+        rideId: String(rideId),
+        message: 'Your booking was rejected. Please try another auto.',
+        timestamp: Date.now(),
+      }
+
+      io.to(`user:${userId}`).emit('notification', payload)
+      try {
+        const Notification = require('./models/notificationModel')
+        await Notification.create({ userId, type: payload.type, message: payload.message, rideId: payload.rideId, timestamp: new Date(payload.timestamp) })
+      } catch (saveErr) {
+        console.warn('Failed to save notification to DB (socket booking reject):', saveErr)
+      }
+
       console.log(`Captain rejected booking for ride ${rideId}, user ${userId}`)
     } catch (error) {
       console.error('Error handling booking rejection:', error)
@@ -554,6 +758,24 @@ io.on('connection', (socket) => {
       if (ride && ride.captainId) {
         socket.to(`captain:${ride.captainId}`).emit('ride:cancelled', payload)
       }
+    }
+  })
+
+  // Handle manual seat updates from captain
+  socket.on('ride:seat-update', async (payload) => {
+    const { rideId, occupied, size, captainId } = payload
+    console.log('🪑 Captain manual seat update:', payload)
+    
+    if (rideId) {
+      // Broadcast to all users in the ride room
+      io.to(`ride:${rideId}`).emit('ride-status-updated', {
+        rideId,
+        occupied,
+        size,
+        captainId
+      })
+      
+      console.log('📡 Broadcasted seat update to ride room:', `ride:${rideId}`)
     }
   })
   // Captain live location updates

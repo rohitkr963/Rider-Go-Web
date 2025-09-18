@@ -32,7 +32,17 @@ exports.userLogin = async (req, res) => {
     const ok = await bcrypt.compare(password, user.password)
     if (!ok) return res.status(401).json({ message: 'Invalid credentials' })
     const token = signToken({ id: user._id, role: 'user' })
-    return res.json({ message: 'Login success', token })
+    return res.json({ 
+      message: 'Login success', 
+      token,
+      user: {
+        id: user._id,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone
+      }
+    })
   } catch (err) {
     return res.status(500).json({ message: err.message })
   }
@@ -142,6 +152,21 @@ exports.requireCaptain = async (req, res, next) => {
     const payload = jwt.verify(token, JWT_SECRET)
     if (payload.role !== 'captain') return res.status(403).json({ message: 'Forbidden' })
     req.captainId = payload.id
+    next()
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid token' })
+  }
+}
+
+// Auth middleware for regular users
+exports.requireUser = async (req, res, next) => {
+  try {
+    const header = req.headers.authorization || ''
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null
+    if (!token) return res.status(401).json({ message: 'Missing token' })
+    const payload = jwt.verify(token, JWT_SECRET)
+    if (payload.role !== 'user') return res.status(403).json({ message: 'Forbidden' })
+    req.userId = payload.id
     next()
   } catch (err) {
     return res.status(401).json({ message: 'Invalid token' })

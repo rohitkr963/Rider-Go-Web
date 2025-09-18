@@ -19,7 +19,9 @@ import UserRideList from './pages/UserRideList.jsx'
 import AcceptedRidesList from './pages/AcceptedRidesList.jsx'
 import RideHistory from './pages/RideHistory.jsx'
 import UserProfile from './pages/UserProfile.jsx'
+import Notifications from './pages/Notifications.jsx'
 import UserAcceptedRides from './pages/UserAcceptedRides.jsx'
+import CaptainProfileView from './pages/CaptainProfileView.jsx'
 
 const router = createBrowserRouter([
   {
@@ -36,6 +38,8 @@ const router = createBrowserRouter([
       { path: 'captain/rides', element: <CaptainRides /> },
       { path: 'captain/earnings', element: <CaptainEarnings /> },
   { path: 'captain/profile', element: <CaptainProfile /> },
+  // Public view for any user to see a captain's profile by id
+  { path: 'captain/:captainId/profile', element: <CaptainProfileView /> },
   { path: 'captain/live', element: <CaptainLive /> },
       { path: 'accepted-rides', element: <AcceptedRidesList /> },
       { path: 'captain/ride-history', element: <RideHistory /> },
@@ -43,6 +47,7 @@ const router = createBrowserRouter([
       { path: 'user/rides', element: <UserRideList /> },
       { path: 'user/accepted-rides', element: <UserAcceptedRides /> },
       { path: 'user/profile', element: <UserProfile /> },
+  { path: 'user/notifications', element: <Notifications /> },
     ],
   },
 ])

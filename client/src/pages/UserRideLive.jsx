@@ -54,7 +54,7 @@ export default function UserRideLive() {
   const [passengerCount, setPassengerCount] = React.useState(1)
 
   const ensureMarkerStyles = React.useCallback(() => {
-  if (typeof document === 'undefined' || !document.head) return
+  if (typeof document === 'undefined') return
   if (document.getElementById('marker-styles')) return
   const s = document.createElement('style')
   s.id = 'marker-styles'
@@ -70,11 +70,18 @@ export default function UserRideLive() {
     `
     // defensive: try multiple fallbacks for where to append the style
     try {
-      const head = document.head || document.getElementsByTagName('head')?.[0]
+      // prefer document.head, fallback to querySelector, getElementsByTagName, body, or documentElement
+      const head = document.head || document.querySelector('head') || (document.getElementsByTagName && document.getElementsByTagName('head')?.[0]) || null
       if (head && typeof head.appendChild === 'function') {
-        head.appendChild(s)
-      } else if (document.body && typeof document.body.appendChild === 'function') {
-        document.body.appendChild(s)
+        try { head.appendChild(s) } catch { /* fallthrough to other append targets */ }
+      }
+      // ensure we've appended it somewhere; try body and documentElement as last resorts
+      if (!document.getElementById('marker-styles')) {
+        if (document.body && typeof document.body.appendChild === 'function') {
+          try { document.body.appendChild(s) } catch { /* ignore */ }
+        } else if (document.documentElement && typeof document.documentElement.appendChild === 'function') {
+          try { document.documentElement.appendChild(s) } catch { /* ignore */ }
+        }
       }
     } catch (err) {
       // swallow — style injection is non-critical, avoid breaking the app
@@ -86,6 +93,11 @@ export default function UserRideLive() {
   const fromLng = parseFloat(params.get('fromLng'))
   const toLat = parseFloat(params.get('toLat'))
   const toLng = parseFloat(params.get('toLng'))
+  const fromName = params.get('fromName') || 'Pickup Location'
+  const toName = params.get('toName') || 'Destination'
+  
+  console.log('🔍 Location names from URL:', { fromName, toName })
+  console.log('🔍 URL params:', params.toString())
 
   // Fetch initial ride data
   const fetchRideData = React.useCallback(async () => {
@@ -94,7 +106,7 @@ export default function UserRideLive() {
   // This endpoint is public on backend; include Authorization only if token exists
   const headers = token ? { Authorization: `Bearer ${token}` } : {}
   // Use relative path so dev proxy and production host work correctly
-  const response = await fetch(`/api/ride/${rideId}`, { headers })
+  const response = await fetch(`http://localhost:3000/api/ride/${rideId}`, { headers })
       
       if (response.ok) {
         const data = await response.json()
@@ -286,24 +298,40 @@ export default function UserRideLive() {
 
     if (end) {
       fetch(`https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`)
-        .then(r => r.json())
+        .then(r => {
+          if (!r.ok) {
+            console.error('OSRM route fetch failed', r.status, r.statusText)
+            return null
+          }
+          return r.json()
+        })
         .then(json => {
+          if (!json) return
+          // Check if map is still valid before proceeding
+          if (!map || !map._container) {
+            console.warn('Map container not available, skipping route rendering')
+            return
+          }
+          
           const coords = json?.routes?.[0]?.geometry?.coordinates || []
           const latlngs = coords.map(c => [c[1], c[0]])
-          if (userRouteRef.current) map.removeLayer(userRouteRef.current)
-          if (map && map._container) {
-            userRouteRef.current = L.polyline(latlngs, { color: '#3b82f6', weight: 4 }).addTo(map)
+          if (userRouteRef.current && map.hasLayer(userRouteRef.current)) {
+            map.removeLayer(userRouteRef.current)
           }
+          userRouteRef.current = L.polyline(latlngs, { color: '#3b82f6', weight: 4 }).addTo(map)
 
           const userIcon = L.divIcon({ className: '', html: `<div class="user-marker"><div class="user-label">USER</div></div>`, iconSize: [100, 28], iconAnchor: [50, 14] })
-          if (!userMarkerRef.current && map && map._container) {
+          if (!userMarkerRef.current) {
             userMarkerRef.current = L.marker([fromLat, fromLng], { icon: userIcon, interactive: false }).addTo(map)
           }
 
-          if (toLat && toLng && map && map._container) {
+          if (toLat && toLng) {
             L.marker([toLat, toLng]).addTo(map).bindPopup('Destination')
           }
           ensureMarkerStyles()
+        })
+        .catch(error => {
+          console.error('Error fetching route:', error)
         })
     } else animateCaptain(start)
 
@@ -534,13 +562,24 @@ export default function UserRideLive() {
       
       // Send booking request via socket instead of API
       if (socketRef.current) {
+        // Ensure we have proper location names
+        const actualFromName = fromName && fromName !== 'Pickup Location' ? fromName : `Location (${fromLat?.toFixed(4)}, ${fromLng?.toFixed(4)})`
+        const actualToName = toName && toName !== 'Destination' ? toName : `Location (${toLat?.toFixed(4)}, ${toLng?.toFixed(4)})`
+        
         const requestData = {
           rideId,
           userId,
-          pickup: { lat: fromLat, lng: fromLng },
-          destination: { lat: toLat, lng: toLng },
-          passengerCount: passengerCount
+          pickup: { lat: fromLat, lng: fromLng, name: actualFromName },
+          destination: { lat: toLat, lng: toLng, name: actualToName },
+          passengerCount: passengerCount,
+          pickupName: actualFromName,
+          destinationName: actualToName
         }
+        
+        console.log('🚀 Sending request with location names:', { 
+          pickup: actualFromName, 
+          destination: actualToName 
+        })
         socketRef.current.emit('ride:request', requestData)
         console.log('🚀 User sending ride request:', requestData)
         console.log('🔌 User socket ID:', socketRef.current.id)
@@ -877,7 +916,10 @@ export default function UserRideLive() {
               {/* My Booked Rides Button */}
               <div style={{ marginTop: '16px' }}>
                 <button
-                  onClick={() => window.location.href = '/user/accepted-rides'}
+                  onClick={() => {
+                    window.history.pushState({}, '', '/user/accepted-rides')
+                    window.dispatchEvent(new PopStateEvent('popstate'))
+                  }}
                   style={{
                     width: '100%',
                     padding: '12px 16px',

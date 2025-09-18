@@ -22,6 +22,24 @@ const pickupIcon = new L.Icon({
   shadowSize: [41, 41]
 })
 
+// Captain marker with text
+const captainTextIcon = new L.DivIcon({
+  className: 'captain-text-marker',
+  html: `<div style="
+    background: #2563eb; 
+    color: white; 
+    padding: 4px 8px; 
+    border-radius: 8px; 
+    font-weight: bold; 
+    font-size: 12px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    border: 2px solid white;
+  ">CAPTAIN</div>`,
+  iconSize: [70, 25],
+  iconAnchor: [35, 25]
+})
+
 const destinationIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
@@ -244,6 +262,7 @@ export default function CaptainLive() {
   })
   const [bookingNotifications, setBookingNotifications] = useState([])
   const [showBookingPanel, setShowBookingPanel] = useState(false)
+  const [userPickupLocations, setUserPickupLocations] = useState([]) // User pickup locations
   const [incomingRideRequest, setIncomingRideRequest] = useState(null)
   const [showAcceptRejectModal, setShowAcceptRejectModal] = useState(false)
   const [acceptedRides, setAcceptedRides] = useState(() => {
@@ -682,6 +701,28 @@ export default function CaptainLive() {
       setIncomingRideRequest(payload)
       setShowAcceptRejectModal(true)
     })
+
+    // Listen for ride acceptance events - Add pickup location to map
+    socket.on('ride:accepted', (data) => {
+      console.log('✅ Ride accepted:', data)
+      
+      // Add user pickup location to map when captain accepts
+      if (data.pickup && data.pickup.lat && data.pickup.lng) {
+        const userLocation = {
+          id: `pickup-${data.userId}-${Date.now()}`,
+          userId: data.userId,
+          userEmail: data.userEmail || 'User',
+          lat: data.pickup.lat,
+          lng: data.pickup.lng,
+          name: data.pickup.name || 'Pickup Location',
+          fare: data.fare,
+          timestamp: new Date()
+        }
+        
+        setUserPickupLocations(prev => [...prev, userLocation])
+        console.log('📍 Added user pickup location to captain map:', userLocation)
+      }
+    })
     
     // Listen for booking notifications
     socket.on('ride:booking', (payload) => {
@@ -1034,6 +1075,17 @@ export default function CaptainLive() {
         console.debug('updateOccupied: non-ok response', { rideIdForPatch, status: res.status, body: data })
       } else {
         console.log('✅ Seat update successful:', { rideId: rideIdForPatch, occupied: bounded })
+        
+        // Emit socket event for real-time updates to users
+        if (socketRef.current) {
+          socketRef.current.emit('ride:seat-update', {
+            rideId: rideIdForPatch,
+            occupied: bounded,
+            size: vehicleSize,
+            captainId: rideData?.captainId || localStorage.getItem('captainId')
+          })
+          console.log('📡 Emitted seat update to users:', { rideId: rideIdForPatch, occupied: bounded, size: vehicleSize })
+        }
       }
       // Always reflect bounded value locally to match UI intent
       setOccupied(bounded)
@@ -1384,6 +1436,51 @@ export default function CaptainLive() {
             </Popup>
           </Marker>
           
+          {/* User Pickup Locations - Show when captain accepts ride */}
+          {userPickupLocations.map((location) => (
+            <Marker
+              key={location.id}
+              position={[location.lat, location.lng]}
+              icon={pickupIcon}
+            >
+              <Popup>
+                <div style={{ minWidth: '180px' }}>
+                  <strong>📍 PICKUP</strong><br />
+                  <strong>User:</strong> {location.userEmail}<br />
+                  <strong>Location:</strong> {location.name}<br />
+                  <strong>Fare:</strong> ₹{location.fare}<br />
+                  <strong>Time:</strong> {location.timestamp.toLocaleTimeString()}<br />
+                  <button
+                    onClick={() => {
+                      // Remove pickup location when picked up
+                      setUserPickupLocations(prev => prev.filter(loc => loc.id !== location.id))
+                    }}
+                    style={{
+                      marginTop: '8px',
+                      padding: '6px 12px',
+                      background: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    ✅ Picked Up
+                  </button>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+
+          {/* Captain Text Marker */}
+          {captainPosition && (
+            <Marker
+              position={captainPosition}
+              icon={captainTextIcon}
+            />
+          )}
+
           {/* Captain Marker + Blue accuracy circle */}
           {captainPosition && (
             <>

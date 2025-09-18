@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import io from 'socket.io-client'
 
 // Function to get readable address from coordinates
@@ -61,6 +62,7 @@ const AcceptedRidesList = () => {
   const [acceptedRides, setAcceptedRides] = useState([])
   const [loading, setLoading] = useState(true)
   const [ridesWithAddresses, setRidesWithAddresses] = useState([])
+  // Profile view available via /captain/:captainId/profile
   // ...existing code...
 
 
@@ -136,6 +138,33 @@ const AcceptedRidesList = () => {
     setRidesWithAddresses(ridesWithAddr)
   }, [])
 
+  // Helper to fetch accepted rides from server. If captainId is falsy, call endpoint without query param
+  const fetchServerRides = async (captainIdParam) => {
+    try {
+      const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
+      const base = 'http://localhost:3000/api/accepted-rides'
+      const url = captainIdParam ? `${base}?captainId=${encodeURIComponent(captainIdParam)}` : base
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+      const res = await fetch(url, { headers })
+      if (!res.ok) {
+        // If we tried with captainId and server returned 400/empty, try without captainId if token is present
+        if (captainIdParam && token) {
+          const res2 = await fetch(base, { headers })
+          if (res2.ok) {
+            const j2 = await res2.json()
+            return j2?.rides || []
+          }
+        }
+        return []
+      }
+      const json = await res.json()
+      return json?.rides || []
+    } catch (err) {
+      console.warn('Failed to fetch server accepted rides:', err)
+      return []
+    }
+  }
+
   useEffect(() => {
     // Load existing rides from localStorage on component mount
     const saved = localStorage.getItem('captain_acceptedRides')
@@ -155,6 +184,8 @@ const AcceptedRidesList = () => {
 
     socket.on('connect', async () => {
       console.log('✅ AcceptedRidesList socket connected, ID:', socket.id)
+      // expose socket for other modules/debugging
+  try { window.socket = socket } catch { /* ignore */ }
       try {
         // Try to register this socket to the captain room so server emits reach us
         let captainId = localStorage.getItem('captain_id')
@@ -177,19 +208,37 @@ const AcceptedRidesList = () => {
 
         // After registering, fetch authoritative accepted rides from API (server persisted)
         try {
-          const listRes = await fetch(`http://localhost:3000/api/accepted-rides?captainId=${captainId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-          if (listRes.ok) {
-            const listJson = await listRes.json()
-            const serverRides = listJson?.rides || []
-            console.log('📥 Loaded accepted rides from server:', serverRides.length)
+          const serverRides = await fetchServerRides(captainId)
+          console.log('📥 Loaded accepted rides from server via helper:', serverRides && serverRides.length)
+
+          // Merge/fallback logic:
+          // - If server returns non-empty array, prefer it (authoritative)
+          // - If server returns empty BUT we had saved rides in localStorage, keep the saved rides
+          const saved = localStorage.getItem('captain_acceptedRides')
+          let savedRides = null
+          if (saved) {
+            try { savedRides = JSON.parse(saved) } catch { savedRides = null }
+          }
+
+          if (Array.isArray(serverRides) && serverRides.length > 0) {
             setAcceptedRides(serverRides)
             localStorage.setItem('captain_acceptedRides', JSON.stringify(serverRides))
             convertRidesToAddresses(serverRides)
+          } else if ((serverRides === null || (Array.isArray(serverRides) && serverRides.length === 0)) && Array.isArray(savedRides) && savedRides.length > 0) {
+            // Server returned empty or failed; fall back to local saved rides so UI doesn't vanish unexpectedly
+            console.warn('Server returned no rides; falling back to saved local rides')
+            setAcceptedRides(savedRides)
+            // localStorage already has them; re-run conversion to ensure addresses are shown
+            convertRidesToAddresses(savedRides)
+          } else {
+            // No server rides and no saved rides — ensure state is cleared
+            setAcceptedRides([])
+            localStorage.setItem('captain_acceptedRides', JSON.stringify([]))
+            setRidesWithAddresses([])
           }
         } catch (err) {
           console.warn('Failed to load accepted rides from server', err)
+          // keep whatever is already in local state / localStorage
         }
       } catch (err) {
         console.warn('AcceptedRidesList connect handler failed', err)
@@ -208,12 +257,30 @@ const AcceptedRidesList = () => {
       convertRidesToAddresses(rides)
     })
 
-    // Listen for ride accepted events — server will emit 'ride:accepted-list' with full list after saving
+    // Listen for ride accepted events — server may emit either a full list or a single ride payload
     socket.on('ride:accepted', (payload) => {
       console.log('✅ Ride accepted event received (socket):', payload)
-      // Do not POST from client; the server already saves the accepted ride.
-      // Rely on 'ride:accepted-list' event to receive the authoritative list from server.
-      // Optional: show a transient notification to the captain.
+      // If server emits full list, update authoritative state
+      if (Array.isArray(payload)) {
+        setAcceptedRides(payload)
+        localStorage.setItem('captain_acceptedRides', JSON.stringify(payload))
+        convertRidesToAddresses(payload)
+        return
+      }
+
+      // If server emitted a single ride object, append/merge it into current state
+      if (payload && payload.rideId) {
+        setAcceptedRides(prev => {
+          // avoid duplicates
+          const exists = prev.some(r => r.rideId === payload.rideId)
+          const updated = exists ? prev.map(r => r.rideId === payload.rideId ? { ...r, ...payload } : r) : [payload, ...prev]
+          localStorage.setItem('captain_acceptedRides', JSON.stringify(updated))
+          // kick off address conversion for the updated list
+          try { convertRidesToAddresses(updated) } catch (e) { console.warn('Conversion failed after ride:accepted', e) }
+          return updated
+        })
+      }
+      // else: malformed payload — ignore
     })
 
     // Listen for ride cancellations by user
@@ -277,12 +344,17 @@ const AcceptedRidesList = () => {
   useEffect(() => {
     if (acceptedRides.length > 0) {
       convertRidesToAddresses(acceptedRides)
+    } else {
+      // Keep ridesWithAddresses in sync: clear when there are no accepted rides
+      setRidesWithAddresses([])
     }
   }, [acceptedRides, convertRidesToAddresses])
 
   const goBackToCaptainLive = () => {
     window.history.back()
   }
+
+  // Note: Public profile view is handled by dedicated route /captain/:captainId/profile
 
   return (
     <div style={{
@@ -797,6 +869,28 @@ const AcceptedRidesList = () => {
                     >
                       📍 Track
                     </button>
+                    
+                    {/* Navigate to public captain profile view */}
+                    <Link to={`/captain/${ride.captainId}/profile`} style={{ textDecoration: 'none', flex: 1 }}>
+                      <button
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          background: '#8b5cf6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        👤 View Profile
+                      </button>
+                    </Link>
                   </div>
 
                   {/* Ride ID */}
@@ -815,6 +909,8 @@ const AcceptedRidesList = () => {
             </div>
           </div>
         )}
+
+        {/* Captain profile modal removed; use /captain/:captainId/profile instead */}
       </div>
     </div>
   )

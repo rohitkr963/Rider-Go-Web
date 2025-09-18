@@ -7,6 +7,11 @@ const acceptedRideSchema = new mongoose.Schema({
     unique: true,
     index: true
   },
+  originalRideId: {
+    type: String,
+    required: true,
+    index: true
+  },
   captainId: {
     type: String,
     required: true,

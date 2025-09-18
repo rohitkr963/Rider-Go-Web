@@ -72,12 +72,23 @@ export default function UserRideList() {
   const onTrack = (rideId) => {
     const selected = rides.find(r => r.id === rideId)
     const extra = selected && selected.lat != null && selected.lng != null ? { capLat: String(selected.lat), capLng: String(selected.lng) } : {}
-    const q = new URLSearchParams({ rideId, fromLat, fromLng, toLat, toLng, ...extra }).toString()
+    const q = new URLSearchParams({ 
+      rideId, 
+      fromLat, 
+      fromLng, 
+      toLat, 
+      toLng, 
+      fromName, 
+      toName, 
+      ...extra 
+    }).toString()
     navigate(`/user/ride-live?${q}`)
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: 24 }}>
+    <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: 24, paddingTop: 40 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>Available rides on your route</h2>
         <Link to="/user/home" style={{ textDecoration: 'none' }}>← Change route</Link>
@@ -98,6 +109,7 @@ export default function UserRideList() {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

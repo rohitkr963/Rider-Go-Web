@@ -108,11 +108,13 @@ const UserProfile = () => {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '20px'
-    }}>
+    <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      
+      <div style={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        padding: '20px'
+      }}>
       <div style={{
         maxWidth: '600px',
         margin: '0 auto',
@@ -133,31 +135,12 @@ const UserProfile = () => {
             justifyContent: 'space-between',
             marginBottom: '16px'
           }}>
-            <button
-              onClick={goBack}
-              style={{
-                background: 'rgba(255,255,255,0.2)',
-                border: 'none',
-                color: 'white',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              ← Back to Home
-            </button>
-            
             <h1 style={{
               margin: 0,
               fontSize: '24px',
               fontWeight: '700'
             }}>
-              My Profile
+              👤 My Profile
             </h1>
             
             <button
@@ -678,6 +661,7 @@ const UserProfile = () => {
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

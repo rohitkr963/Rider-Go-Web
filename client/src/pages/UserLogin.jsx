@@ -30,10 +30,12 @@ export default function UserLogin() {
       // Store token and user info in localStorage
       if (data.token) {
         localStorage.setItem('token', data.token)
+        localStorage.setItem('userId', data.user?.id || data.user?._id || data.userId)
         localStorage.setItem('userEmail', email)
         localStorage.setItem('userName', data.user?.name || 'User')
         localStorage.setItem('userPhone', data.user?.phone || 'Not provided')
         localStorage.setItem('userJoinDate', new Date().toLocaleDateString())
+        console.log('✅ User login successful, userId stored:', data.user?.id || data.user?._id || data.userId)
       }
       
       // Force page reload to update UserHome state

@@ -151,9 +151,17 @@ exports.planRide = async (req, res) => {
 }
 
 // GET /api/ride/:id
+const mongoose = require('mongoose')
+
 exports.getRide = async (req, res) => {
   try {
     const { id } = req.params
+    // Validate ObjectId to avoid cast errors when callers pass non-ObjectId strings
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      // Return 404 so client gets a consistent "not found" instead of server error
+      return res.status(404).json({ message: 'Ride not found' })
+    }
+
     const ride = await Ride.findById(id)
     if (!ride) return res.status(404).json({ message: 'Ride not found' })
 
@@ -229,6 +237,40 @@ exports.acceptRide = async (req, res) => {
         size: ride.size,
         captainId: String(ride.captainId),
       })
+
+      // Notify the ride requester (user) with a standardized notification payload
+      try {
+        const userId = ride.userId ? String(ride.userId) : null
+        if (userId) {
+          let captainName = 'Captain'
+          try {
+            const cap = await Captain.findById(req.captainId).select('name')
+            if (cap && cap.name) captainName = cap.name
+          } catch (_) {}
+
+          const payload = {
+            type: 'rideAccepted',
+            rideId: String(ride._id),
+            captainId: String(ride.captainId),
+            captainName,
+            message: 'Your ride has been accepted by a captain',
+            timestamp: Date.now()
+          }
+
+          // Emit socket event
+          io.to(`user:${userId}`).emit('notification', payload)
+
+          // Persist notification to DB (best-effort)
+          try {
+            const Notification = require('../models/notificationModel')
+            await Notification.create({ userId, type: payload.type, message: payload.message, rideId: payload.rideId, data: { captainId, captainName }, timestamp: new Date(payload.timestamp) })
+          } catch (saveErr) {
+            console.warn('Failed to save notification to DB (ride accepted):', saveErr)
+          }
+        }
+      } catch (emitErr) {
+        console.warn('Failed to emit user notification for ride accepted', emitErr)
+      }
     }
 
     return res.json({ message: 'Ride accepted', ride })
@@ -259,6 +301,26 @@ exports.completeRide = async (req, res) => {
       $inc: { earnings: ride.fare, ridesCompleted: 1 },
       status: 'offline',
     })
+      // Emit notification to user that ride is completed
+      try {
+        const io = req.app.locals.io
+        const userId = ride.userId ? String(ride.userId) : null
+        if (io && userId) {
+          const payload = {
+            type: 'rideCompleted',
+            rideId: String(ride._id),
+            message: 'Your ride has been completed',
+            timestamp: Date.now()
+          }
+          io.to(`user:${userId}`).emit('notification', payload)
+          try {
+            const Notification = require('../models/notificationModel')
+            await Notification.create({ userId, type: payload.type, message: payload.message, rideId: payload.rideId, timestamp: new Date(payload.timestamp) })
+          } catch (saveErr) {
+            console.warn('Failed to save notification to DB (ride completed):', saveErr)
+          }
+        }
+      } catch (nErr) { console.warn('Failed to emit ride completed notification', nErr) }
     return res.json({ message: 'Ride completed', ride })
   } catch (err) {
     return res.status(500).json({ message: err.message })
@@ -460,6 +522,39 @@ exports.bookRide = async (req, res) => {
           size: authoritativeSize,
           message: 'New passenger booked a seat!'
         })
+
+        // 🔔 Send notification to captain about new booking
+        try {
+          const Notification = require('../models/notificationModel')
+          const notificationPayload = {
+            type: 'newBooking',
+            message: `🎫 New passenger booked your ride! (${updatedRide.occupied}/${authoritativeSize} seats occupied)`,
+            rideId: String(ride._id),
+            timestamp: Date.now(),
+            data: {
+              pickup: ride.pickup || 'Pickup location',
+              destination: ride.drop || 'Destination',
+              occupiedSeats: updatedRide.occupied,
+              totalSeats: authoritativeSize
+            }
+          }
+
+          // Save to database
+          await Notification.create({
+            userId: ride.captainId,
+            type: notificationPayload.type,
+            message: notificationPayload.message,
+            rideId: notificationPayload.rideId,
+            data: notificationPayload.data,
+            timestamp: new Date(notificationPayload.timestamp)
+          })
+
+          // Emit real-time notification to captain
+          io.to(`captain:${String(ride.captainId)}`).emit('notification', notificationPayload)
+          console.log(`🔔 Booking notification sent to captain ${ride.captainId}`)
+        } catch (notificationError) {
+          console.warn('Failed to send booking notification to captain:', notificationError)
+        }
       }
     }
 
@@ -478,50 +573,69 @@ exports.bookRide = async (req, res) => {
 // Cancel ride by user
 exports.cancelRide = async (req, res) => {
   try {
-    const { rideId } = req.params
-    const { userId, acceptanceId, reason } = req.body
+    const { rideId: rideParam } = req.params
+    const { userId, acceptanceId: bodyAcceptanceId, reason } = req.body
 
-    console.log(' User cancelling ride:', { rideId, userId, acceptanceId, reason })
+    console.log(' User cancelling ride:', { rideParam, userId, bodyAcceptanceId, reason })
 
-    // Find and remove the accepted ride
-    const acceptedRide = await AcceptedRide.findOneAndDelete({
-      _id: acceptanceId,
-      userId: userId,
-      rideId: rideId
-    })
+    // Try to find and remove the accepted ride by multiple identifiers for compatibility
+    // Clients may send either:
+    // - acceptanceId === MongoDB _id (ObjectId) stored as AcceptedRide._id
+    // - acceptanceId === generated acceptance string stored in AcceptedRide.rideId
+    // - the route param (rideParam) may also be the generated acceptance string
+    const mongoose = require('mongoose')
+
+    let acceptedRide = null
+    // 1) If client provided an acceptanceId and it's a valid ObjectId, try deleting by _id
+    if (bodyAcceptanceId && mongoose.isValidObjectId(bodyAcceptanceId)) {
+      acceptedRide = await AcceptedRide.findOneAndDelete({ _id: bodyAcceptanceId, userId })
+    }
+
+    // 2) If not found yet and client provided acceptanceId (non-ObjectId), try deleting by rideId field
+    if (!acceptedRide && bodyAcceptanceId) {
+      acceptedRide = await AcceptedRide.findOneAndDelete({ rideId: bodyAcceptanceId, userId })
+    }
+
+    // 3) If still not found, try deleting by the route param (it may contain the generated acceptance string)
+    if (!acceptedRide && rideParam) {
+      acceptedRide = await AcceptedRide.findOneAndDelete({ rideId: rideParam, userId })
+    }
 
     if (!acceptedRide) {
       return res.status(404).json({ error: 'Accepted ride not found' })
     }
 
+    // Determine original ride id (the actual Ride._id) to update occupancy
+    const originalRideId = acceptedRide.originalRideId || rideParam
+
     // Update ride occupancy - reduce by passenger count
-    const ride = await Ride.findById(rideId)
+    const ride = await Ride.findById(originalRideId)
     if (ride) {
       const passengerCount = acceptedRide.passengerCount || 1
       ride.occupied = Math.max(0, (ride.occupied || 0) - passengerCount)
       await ride.save()
 
-      console.log(' Reduced seat count:', { 
-        rideId, 
-        passengerCount, 
-        newOccupied: ride.occupied 
+      console.log(' Reduced seat count:', {
+        originalRideId,
+        passengerCount,
+        newOccupied: ride.occupied
       })
 
       // Emit socket events for real-time updates
-      const io = req.app.get('io')
+      const io = req.app.locals.io
       if (io) {
-        // Update captain and users about seat availability
-        io.to(`ride:${rideId}`).emit('ride-status-updated', {
-          rideId,
+        // Update users in the ride room about occupancy update
+        io.to(`ride:${originalRideId}`).emit('ride-status-updated', {
+          rideId: originalRideId,
           occupied: ride.occupied,
           size: ride.size
         })
 
-        // Notify captain about cancellation
-        io.to(`captain:${ride.captainId}`).emit('ride:cancelled', {
-          rideId,
+        // Notify captain about cancellation — include the generated acceptanceId string
+        io.to(`captain:${acceptedRide.captainId}`).emit('ride:cancelled', {
+          rideId: originalRideId,
           userId,
-          acceptanceId,
+          acceptanceId: acceptedRide.rideId,
           passengerCount,
           reason,
           cancelledBy: 'user'
@@ -531,8 +645,8 @@ exports.cancelRide = async (req, res) => {
       }
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Ride cancelled successfully',
       refundedSeats: acceptedRide.passengerCount || 1
     })
@@ -564,7 +678,8 @@ exports.getUserAcceptedRides = async (req, res) => {
       passengerCount: accepted.passengerCount,
       acceptedAt: accepted.acceptedAt,
       status: 'accepted',
-      captainName: 'Captain'
+      captainName: 'Captain',
+      captainId: accepted.captainId
     }))
 
     console.log('✅ Formatted rides:', formattedRides.length)

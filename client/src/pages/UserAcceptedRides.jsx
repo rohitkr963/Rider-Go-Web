@@ -1,15 +1,55 @@
 import React, { useState, useEffect } from 'react'
 import { io } from 'socket.io-client'
+import { Link } from 'react-router-dom'
 
 export default function UserAcceptedRides() {
   const [acceptedRides, setAcceptedRides] = useState([])
   const [loading, setLoading] = useState(true)
   const [cancellingRide, setCancellingRide] = useState(null)
+  // Profile view is handled by dedicated route /captain/:captainId/profile
 
   // Load accepted rides from localStorage and server
   useEffect(() => {
     loadAcceptedRides()
   }, [])
+
+  // Setup socket connection for real-time updates
+  useEffect(() => {
+    if (acceptedRides.length === 0) return
+
+    const token = localStorage.getItem('token') || localStorage.getItem('captain_token')
+    const socket = io('http://localhost:3000', { auth: { token } })
+    
+    socket.on('connect', () => {
+      console.log('✅ User socket connected for accepted rides')
+      
+      // Join ride rooms for all accepted rides to receive real-time updates
+      acceptedRides.forEach(ride => {
+        if (ride.rideId) {
+          socket.emit('ride:subscribe', { rideId: ride.rideId })
+          console.log('👤 Joined ride room:', `ride:${ride.rideId}`)
+        }
+      })
+    })
+    
+    // Listen for seat updates
+    socket.on('ride-status-updated', (data) => {
+      console.log('🪑 Received seat update:', data)
+      // Update local state if needed - for now just log
+      // In a full implementation, you might want to update ride status in the list
+    })
+    
+    // Listen for ride acceptance events
+    socket.on('ride:accepted', (data) => {
+      console.log('✅ Ride accepted event received:', data)
+      // Refresh the accepted rides list
+      loadAcceptedRides()
+    })
+    
+    return () => {
+      socket.disconnect()
+    }
+  }, [acceptedRides])
 
   const loadAcceptedRides = async () => {
     try {
@@ -121,43 +161,34 @@ export default function UserAcceptedRides() {
     )
   }
 
+  // Public captain profile view is available at /captain/:captainId/profile
+
+  // Rating submission now handled on profile page if required
+
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '20px'
-    }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '24px'
+    <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      
+      <div style={{ 
+        minHeight: 'calc(100vh - 64px)', 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        padding: '20px'
       }}>
-        <h1 style={{ 
-          color: 'white', 
-          fontSize: '28px', 
-          fontWeight: '700',
-          margin: 0
+        {/* Header */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '24px'
         }}>
-          🎫 My Booked Rides
-        </h1>
-        <button
-          onClick={() => window.history.back()}
-          style={{
-            background: 'rgba(255,255,255,0.2)',
-            color: 'white',
-            border: '1px solid rgba(255,255,255,0.3)',
-            borderRadius: '8px',
-            padding: '10px 16px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer'
-          }}
-        >
-          ← Back
-        </button>
-      </div>
+          <h1 style={{ 
+            color: 'white', 
+            fontSize: '28px', 
+            fontWeight: '700',
+            margin: 0
+          }}>
+            🎫 My Booked Rides
+          </h1>
+        </div>
 
       {/* Rides List */}
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -233,14 +264,7 @@ export default function UserAcceptedRides() {
                       <div>
                         <span style={{ fontSize: '14px', color: '#6b7280' }}>Booked At</span>
                         <div style={{ fontSize: '14px', fontWeight: '600', color: '#111' }}>
-                          {ride.acceptedAt ? new Date(ride.acceptedAt).toLocaleString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: true
-                          }) : 'N/A'}
+                          {ride.acceptedAt ? formatTime(ride.acceptedAt) : 'N/A'}
                         </div>
                       </div>
                       <div>
@@ -268,8 +292,28 @@ export default function UserAcceptedRides() {
                     </div>
                   </div>
 
-                  {/* Cancel Button */}
-                  <button
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {ride.captainName && (
+                      <Link to={`/captain/${ride.captainId}/profile`} style={{ textDecoration: 'none' }}>
+                        <button
+                          style={{
+                            background: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px 12px',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            minWidth: '120px'
+                          }}
+                        >
+                          👤 View Profile
+                        </button>
+                      </Link>
+                    )}
+                    <button
                     onClick={() => cancelRide(ride.rideId, ride.acceptanceId)}
                     disabled={cancellingRide === ride.rideId}
                     style={{
@@ -281,17 +325,21 @@ export default function UserAcceptedRides() {
                       fontSize: '14px',
                       fontWeight: '600',
                       cursor: cancellingRide === ride.rideId ? 'not-allowed' : 'pointer',
-                      marginLeft: '16px',
-                      minWidth: '100px'
+                      minWidth: '120px'
                     }}
                   >
                     {cancellingRide === ride.rideId ? '⏳ Cancelling...' : '❌ Cancel Ride'}
                   </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
+      </div>
+
+        {/* Captain Profile Modal */}
+        {/* Profile modal removed in favor of dedicated profile page */}
       </div>
     </div>
   )

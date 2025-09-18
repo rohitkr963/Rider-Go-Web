@@ -1,6 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const AcceptedRide = require('../models/acceptedRideModel')
+const jwt = require('jsonwebtoken')
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me'
 
 // POST /api/accepted-rides - Save accepted ride to database
 router.post('/', async (req, res) => {
@@ -93,9 +95,25 @@ router.get('/', async (req, res) => {
   try {
     const { captainId } = req.query
     
+    // If captainId not supplied, try to derive it from Authorization token (Bearer <token>)
+    if (!captainId) {
+      try {
+        const auth = req.headers.authorization || ''
+        const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
+        if (token) {
+          const payload = jwt.verify(token, JWT_SECRET)
+          if (payload && payload.role === 'captain' && payload.id) {
+            captainId = payload.id
+          }
+        }
+      } catch (e) {
+        console.warn('[acceptedRidesRoutes] failed to derive captainId from token:', e && e.message)
+      }
+    }
+
     if (!captainId) {
       return res.status(400).json({
-        message: 'captainId query parameter is required'
+        message: 'captainId query parameter is required or a valid captain token must be provided'
       })
     }
 
