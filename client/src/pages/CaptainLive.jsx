@@ -266,9 +266,36 @@ export default function CaptainLive() {
   const [incomingRideRequest, setIncomingRideRequest] = useState(null)
   const [showAcceptRejectModal, setShowAcceptRejectModal] = useState(false)
   const [acceptedRides, setAcceptedRides] = useState(() => {
-    const saved = localStorage.getItem('captain_acceptedRides')
-    return saved ? JSON.parse(saved) : []
+    try {
+      const saved = localStorage.getItem('captain_acceptedRides')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
   })
+
+  // Load pickup locations from accepted rides (only once on mount)
+  useEffect(() => {
+    const pickupLocations = acceptedRides
+      .filter(ride => ride.pickup && ride.pickup.lat && ride.pickup.lng)
+      .map(ride => ({
+        id: `pickup-${ride.userId}-${ride.rideId}`,
+        userId: ride.userId,
+        userEmail: ride.userEmail || 'User',
+        lat: ride.pickup.lat,
+        lng: ride.pickup.lng,
+        name: ride.pickup.name || 'User Pickup Location',
+        fare: ride.fare || 50,
+        timestamp: new Date(ride.acceptedAt || Date.now()),
+        rideId: ride.rideId
+      }))
+    
+    if (pickupLocations.length > 0) {
+      // Replace existing locations completely to avoid duplicates
+      setUserPickupLocations(pickupLocations)
+      console.log('📍 Loaded pickup locations from accepted rides:', pickupLocations)
+    }
+  }, []) // Only run once on mount, not on acceptedRides changes
 
   const isMongoId = (v) => typeof v === 'string' && /^[a-fA-F0-9]{24}$/.test(v)
 
@@ -503,6 +530,12 @@ export default function CaptainLive() {
     setOccupied(0)
     localStorage.setItem('captain_occupied', '0')
     
+    // Clear previous user pickup locations for fresh start
+    setUserPickupLocations([])
+    setAcceptedRides([])
+    localStorage.removeItem('captain_acceptedRides')
+    console.log('🧹 Cleared previous pickup locations and accepted rides')
+    
     // Persist ride status to localStorage
     localStorage.setItem('captain_rideStatus', 'started')
     localStorage.setItem('captain_isNavigating', 'true')
@@ -651,7 +684,12 @@ export default function CaptainLive() {
     
     // Clear active ride data so continue ride option disappears from homepage
     localStorage.removeItem('captain_activeRide')
-    console.log('🧹 Cleared active ride data - continue ride option will be removed from homepage')
+    
+    // Clear user pickup locations and accepted rides when ending ride
+    setUserPickupLocations([])
+    setAcceptedRides([])
+    localStorage.removeItem('captain_acceptedRides')
+    console.log('🧹 Cleared active ride data and pickup locations - fresh start for next ride')
     
     // Clear all intervals and watchers
     if (watchIdRef.current) {
@@ -705,22 +743,44 @@ export default function CaptainLive() {
     // Listen for ride acceptance events - Add pickup location to map
     socket.on('ride:accepted', (data) => {
       console.log('✅ Ride accepted:', data)
+      console.log('🔍 Pickup data:', data.pickup)
+      console.log('🔍 User data:', { userId: data.userId, userEmail: data.userEmail })
       
       // Add user pickup location to map when captain accepts
       if (data.pickup && data.pickup.lat && data.pickup.lng) {
         const userLocation = {
-          id: `pickup-${data.userId}-${Date.now()}`,
+          id: `pickup-${data.userId}-${data.rideId}`,
           userId: data.userId,
           userEmail: data.userEmail || 'User',
           lat: data.pickup.lat,
           lng: data.pickup.lng,
-          name: data.pickup.name || 'Pickup Location',
-          fare: data.fare,
-          timestamp: new Date()
+          name: data.pickup.name || 'User Pickup Location',
+          fare: data.fare || 50,
+          timestamp: new Date(),
+          rideId: data.rideId
         }
         
-        setUserPickupLocations(prev => [...prev, userLocation])
-        console.log('📍 Added user pickup location to captain map:', userLocation)
+        setUserPickupLocations(prev => {
+          // More strict duplicate checking - check by userId AND rideId
+          const exists = prev.some(loc => 
+            (loc.userId === userLocation.userId && loc.rideId === data.rideId) ||
+            (Math.abs(loc.lat - userLocation.lat) < 0.0001 && Math.abs(loc.lng - userLocation.lng) < 0.0001)
+          )
+          
+          if (!exists) {
+            console.log('📍 Added user pickup location to captain map:', userLocation)
+            return [...prev, userLocation]
+          } else {
+            console.log('📍 Pickup location already exists, skipping duplicate:', {
+              userId: userLocation.userId,
+              rideId: data.rideId,
+              existingCount: prev.length
+            })
+            return prev
+          }
+        })
+      } else {
+        console.warn('❌ No pickup location data in ride:accepted event:', data)
       }
     })
     
@@ -1184,6 +1244,32 @@ export default function CaptainLive() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* Pickup Locations Info */}
+          {userPickupLocations.length > 0 && (
+            <button
+              onClick={() => {
+                setUserPickupLocations([])
+                console.log('🧹 Manually cleared pickup locations')
+              }}
+              style={{
+                background: '#10b981',
+                color: 'white',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+              title="Click to clear pickup locations"
+            >
+              📍 {userPickupLocations.length} Pickup{userPickupLocations.length > 1 ? 's' : ''} ✕
+            </button>
+          )}
+          
           {/* Booking Notifications Button */}
           {bookingNotifications.length > 0 && (
             <button
@@ -1444,12 +1530,15 @@ export default function CaptainLive() {
               icon={pickupIcon}
             >
               <Popup>
-                <div style={{ minWidth: '180px' }}>
-                  <strong>📍 PICKUP</strong><br />
+                <div style={{ minWidth: '200px' }}>
+                  <strong style={{ color: '#10b981', fontSize: '16px' }}>📍 USER PICKUP</strong><br />
                   <strong>User:</strong> {location.userEmail}<br />
                   <strong>Location:</strong> {location.name}<br />
                   <strong>Fare:</strong> ₹{location.fare}<br />
                   <strong>Time:</strong> {location.timestamp.toLocaleTimeString()}<br />
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                    📍 Lat: {location.lat.toFixed(4)}, Lng: {location.lng.toFixed(4)}
+                  </div>
                   <button
                     onClick={() => {
                       // Remove pickup location when picked up

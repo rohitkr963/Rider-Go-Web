@@ -1,8 +1,9 @@
 import React from 'react'
+import { useLocation } from 'react-router-dom'
+import { io } from 'socket.io-client'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { io } from 'socket.io-client'
-import { useLocation } from 'react-router-dom'
+import { getUserId } from '../utils/userUtils'
 
 export default function UserRideLive() {
   const mapRef = React.useRef(null)
@@ -95,9 +96,12 @@ export default function UserRideLive() {
   const toLng = parseFloat(params.get('toLng'))
   const fromName = params.get('fromName') || 'Pickup Location'
   const toName = params.get('toName') || 'Destination'
-  
-  console.log('🔍 Location names from URL:', { fromName, toName })
-  console.log('🔍 URL params:', params.toString())
+
+
+  React.useEffect(() => {
+    console.log('🔍 Location names from URL:', { fromName, toName })
+    console.log('🔍 URL params:', params.toString())
+  }, [])
 
   // Fetch initial ride data
   const fetchRideData = React.useCallback(async () => {
@@ -137,8 +141,58 @@ export default function UserRideLive() {
           originalSize: ride.size,
           finalSize: size,
           occupied: ride.occupied,
-          captainId: ride.captainId
+          captainId: ride.captainId,
+          pickup: ride.pickup,
+          from: ride.from,
+          captainLocation: ride.captainLocation
         })
+
+        // Create captain start marker if we have captain's location data
+        const map = mapRef.current
+        if (map) {
+          let captainPos = null
+          
+          // Try different ways to get captain's starting location
+          if (ride.pickup && ride.pickup.lat && ride.pickup.lng) {
+            captainPos = [ride.pickup.lat, ride.pickup.lng]
+          } else if (ride.from && ride.from.lat && ride.from.lng) {
+            captainPos = [ride.from.lat, ride.from.lng]
+          } else if (ride.captainLocation && ride.captainLocation.lat && ride.captainLocation.lng) {
+            captainPos = [ride.captainLocation.lat, ride.captainLocation.lng]
+          }
+          
+          if (captainPos) {
+            try {
+              ensureMarkerStyles()
+              
+              // Remove existing start marker
+              if (startMarkerRef.current) {
+                map.removeLayer(startMarkerRef.current)
+              }
+              
+              const html = `<div class="captain-marker"><div class="captain-halo"></div><div class="captain-dot"></div><div class="captain-label">CAPTAIN</div></div>`
+              const icon = L.divIcon({ className: '', html, iconSize: [120, 120], iconAnchor: [60, 60] })
+              startMarkerRef.current = L.marker(captainPos, { icon, interactive: false }).addTo(map)
+              startMarkerRef.current.setZIndexOffset(950)
+              startMarkerRef.current.bindTooltip('Captain Location', { permanent: true, direction: 'bottom', className: 'captain-tooltip' })
+              startMarkerRef.current.bringToFront()
+              
+              // Set map view to show captain location first, then fit both locations
+              map.setView(captainPos, 14)
+              
+              // After a short delay, fit bounds to show both captain and user
+              setTimeout(() => {
+                const userPos = [fromLat, fromLng]
+                const bounds = L.latLngBounds([captainPos, userPos])
+                map.fitBounds(bounds, { padding: [50, 50] })
+              }, 1000)
+              
+              console.log('✅ Captain marker created from API data at:', captainPos)
+            } catch (e) {
+              console.warn('Failed to create captain marker:', e)
+            }
+          }
+        }
       }
     } catch (error) {
       console.warn('Failed to fetch ride data:', error)
@@ -351,7 +405,7 @@ export default function UserRideLive() {
     s.emit('ride:subscribe', { rideId })
     
     // Also join user-specific room for booking responses
-    const userId = localStorage.getItem('userId') || 'user123'
+    const userId = getUserId()
     s.emit('join', `user:${userId}`)
     
     console.log('🔌 User socket connected, joining ride room:', rideId)
@@ -558,7 +612,7 @@ export default function UserRideLive() {
     
     try {
       const token = localStorage.getItem('token')
-      const userId = localStorage.getItem('userId') || 'user123'
+      const userId = getUserId()
       
       // Send booking request via socket instead of API
       if (socketRef.current) {
@@ -779,7 +833,7 @@ export default function UserRideLive() {
                     color: '#374151',
                     marginBottom: '8px'
                   }}>
-                    👥 Number of Passengers:
+                    👥 Number of Passengers: (Max {availableCount} available)
                   </label>
                   <select
                     value={passengerCount}
@@ -795,7 +849,7 @@ export default function UserRideLive() {
                       cursor: 'pointer'
                     }}
                   >
-                    {[1, 2, 3, 4].filter(count => count <= availableCount).map(count => (
+                    {Array.from({ length: Math.max(1, availableCount) }, (_, i) => i + 1).map(count => (
                       <option key={count} value={count}>
                         {count} passenger{count > 1 ? 's' : ''}
                       </option>

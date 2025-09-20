@@ -487,6 +487,20 @@ io.on('connection', (socket) => {
       // Emit accepted event globally (for users) and to the captain's room for their UI
       io.emit('ride:accepted', acceptPayload)
 
+      // Start tracking user's location for the captain
+      const userRoom = `user:${payload.userId}`
+      const captainRoom = `captain:${finalCaptainId}`
+      
+      // Emit to user to start sharing location with captain
+      io.to(userRoom).emit('start:location-sharing', {
+        rideId: payload.rideId,
+        captainId: finalCaptainId,
+        captainRoom: captainRoom,
+        message: 'Captain has accepted your ride. Sharing your location...'
+      })
+      
+      console.log(`📍 Started location sharing: User ${payload.userId} -> Captain ${finalCaptainId}`)
+
       // 🔔 Send notification to user about ride acceptance
       const targetUserId = payload.userId
       if (targetUserId) {
@@ -569,13 +583,54 @@ io.on('connection', (socket) => {
       
   console.log(`✅ Ride accepted: ${requestedSeats} seats booked, ${ride.occupied}/${totalSeats} total occupied`)
       console.log(`📋 Captain ${finalCaptainId} now has ${global.acceptedRides[finalCaptainId].length} accepted rides`)
-      
     } catch (error) {
-      console.error('Error processing ride acceptance:', error)
+      console.error('❌ Error accepting ride:', error)
       socket.emit('ride:rejected', { 
         rideId: payload.rideId, 
         userId: payload.userId,
-        reason: 'Server error' 
+        reason: 'Server error occurred' 
+      })
+    }
+  })
+
+  // Handle user location updates for captain tracking
+  socket.on('user:location-update', (payload) => {
+    console.log('📍 User location update:', payload)
+    
+    const { userId, rideId, captainId, lat, lng, accuracy, timestamp } = payload
+    
+    if (!userId || !captainId || !lat || !lng) {
+      console.warn('❌ Invalid location update payload')
+      return
+    }
+    
+    // Emit location to specific captain
+    const captainRoom = `captain:${captainId}`
+    io.to(captainRoom).emit('user:location', {
+      userId: userId,
+      rideId: rideId,
+      lat: lat,
+      lng: lng,
+      accuracy: accuracy || 10,
+      timestamp: timestamp || Date.now(),
+      type: 'pickup-location'
+    })
+    
+    console.log(`📍 Forwarded user ${userId} location to captain ${captainId}`)
+  })
+
+  // Handle stopping location sharing
+  socket.on('stop:location-sharing', (payload) => {
+    console.log('🛑 Stop location sharing:', payload)
+    
+    const { userId, captainId, rideId } = payload
+    
+    if (captainId) {
+      const captainRoom = `captain:${captainId}`
+      io.to(captainRoom).emit('user:location-stopped', {
+        userId: userId,
+        rideId: rideId,
+        message: 'User stopped sharing location'
       })
     }
   })

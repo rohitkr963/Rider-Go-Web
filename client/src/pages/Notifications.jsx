@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { getUserId } from '../utils/userUtils'
 
 // Helper functions for notification styling
 const getTypeColor = (type) => {
@@ -36,7 +38,7 @@ export default function Notifications() {
     const syncFromServer = async () => {
       try {
         const token = localStorage.getItem('token')
-        const userId = localStorage.getItem('userId')
+        const userId = getUserId()
         if (!token || !userId) return
         const res = await fetch(`http://localhost:3000/api/notifications?userId=${userId}`, {
           headers: { Authorization: `Bearer ${token}` }

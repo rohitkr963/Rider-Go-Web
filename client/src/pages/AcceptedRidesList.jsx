@@ -62,6 +62,7 @@ const AcceptedRidesList = () => {
   const [acceptedRides, setAcceptedRides] = useState([])
   const [loading, setLoading] = useState(true)
   const [ridesWithAddresses, setRidesWithAddresses] = useState([])
+  const [userLocations, setUserLocations] = useState({}) // Track user locations
   // Profile view available via /captain/:captainId/profile
   // ...existing code...
 
@@ -298,39 +299,52 @@ const AcceptedRidesList = () => {
       console.log('🔄 Ride status updated:', payload)
       setAcceptedRides(prev => {
         const updated = prev.map(ride => {
-          if (ride.rideId !== payload.rideId) return ride
-
-          // Merge available fields from payload into the ride
-          const merged = {
-            ...ride,
-            occupied: typeof payload.occupied === 'number' ? payload.occupied : ride.occupied,
-            totalSeats: typeof payload.size === 'number' ? payload.size : ride.totalSeats,
-            // merge pickup/destination if present
-            pickup: payload.pickup ? payload.pickup : ride.pickup,
-            destination: payload.destination ? payload.destination : ride.destination,
-            // prefer server-provided distance/duration if available
-            distance: (typeof payload.distance === 'number') ? payload.distance : ride.distance,
-            duration: (typeof payload.duration === 'number') ? payload.duration : ride.duration
-          }
-
-          // If pickup and destination coords are present, recompute distance/duration locally
-          try {
-            const p = merged.pickup
-            const d = merged.destination
-            if (p && d && p.lat && p.lng && d.lat && d.lng) {
-              const km = haversineKm(p.lat, p.lng, d.lat, d.lng)
-              merged.distance = Number(km.toFixed(2))
-              const mins = estimateDurationMin(merged.distance)
-              merged.duration = mins
+          if (ride.rideId === payload.rideId) {
+            return {
+              ...ride,
+              occupied: payload.occupied || ride.occupied,
+              distance: payload.distance || ride.distance,
+              duration: payload.duration || ride.duration,
+              status: payload.status || ride.status,
+              // Update any other fields that might come from the server
+              ...(payload.updatedFields || {})
             }
-          } catch (err) { console.warn('Failed to recompute distance/duration:', err) }
-
-          return merged
+          }
+          return ride
         })
-
-        // persist and refresh addresses for updated rides
+        
+        // Persist to localStorage
         localStorage.setItem('captain_acceptedRides', JSON.stringify(updated))
-        try { convertRidesToAddresses(updated) } catch (e) { console.warn('Failed to convert addresses after status update', e) }
+        return updated
+      })
+    })
+
+    // Listen for user location updates
+    socket.on('user:location', (payload) => {
+      console.log('📍 Received user location:', payload)
+      const { userId, rideId, lat, lng, accuracy, timestamp } = payload
+      
+      setUserLocations(prev => ({
+        ...prev,
+        [userId]: {
+          rideId: rideId,
+          lat: lat,
+          lng: lng,
+          accuracy: accuracy,
+          timestamp: timestamp,
+          lastUpdated: new Date().toLocaleTimeString()
+        }
+      }))
+    })
+
+    // Listen for user location sharing stopped
+    socket.on('user:location-stopped', (payload) => {
+      console.log('🛑 User stopped sharing location:', payload)
+      const { userId } = payload
+      
+      setUserLocations(prev => {
+        const updated = { ...prev }
+        delete updated[userId]
         return updated
       })
     })

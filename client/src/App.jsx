@@ -4,8 +4,8 @@ import UserNavbar from './components/UserNavbar'
 
 function App() {
   const { pathname } = useLocation()
-  // Show UserNavbar only for user-facing routes (prefix '/user')
-  const showUserNavbar = typeof pathname === 'string' && pathname.startsWith('/user')
+  // Show UserNavbar for user-facing routes (prefix '/user') and for the root homepage '/'
+  const showUserNavbar = typeof pathname === 'string' && (pathname === '/' || pathname.startsWith('/user'))
 
   return (
     <div>

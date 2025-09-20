@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { io } from 'socket.io-client'
 import { Link } from 'react-router-dom'
+import { getUserId } from '../utils/userUtils'
 
 export default function UserAcceptedRides() {
   const [acceptedRides, setAcceptedRides] = useState([])
   const [loading, setLoading] = useState(true)
   const [cancellingRide, setCancellingRide] = useState(null)
+  const [locationSharing, setLocationSharing] = useState({})
   // Profile view is handled by dedicated route /captain/:captainId/profile
 
   // Load accepted rides from localStorage and server
@@ -45,11 +47,95 @@ export default function UserAcceptedRides() {
       // Refresh the accepted rides list
       loadAcceptedRides()
     })
+
+    // Listen for location sharing requests from captain
+    socket.on('start:location-sharing', (data) => {
+      console.log('📍 Captain requested location sharing:', data)
+      startLocationSharing(data.captainId, data.rideId, socket)
+    })
     
     return () => {
       socket.disconnect()
     }
   }, [acceptedRides])
+
+
+  // Start sharing location with captain
+  const startLocationSharing = (captainId, rideId, socket) => {
+    const userId = getUserId()
+    
+    console.log(`📍 Starting location sharing with captain ${captainId} for ride ${rideId}`)
+    
+    // Check if geolocation is supported
+    if (!navigator.geolocation) {
+      console.warn('❌ Geolocation not supported')
+      return
+    }
+    
+    // Start watching position
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords
+        
+        // Send location to server for captain
+        socket.emit('user:location-update', {
+          userId: userId,
+          rideId: rideId,
+          captainId: captainId,
+          lat: latitude,
+          lng: longitude,
+          accuracy: accuracy,
+          timestamp: Date.now()
+        })
+        
+        console.log(`📍 Sent location to captain: ${latitude}, ${longitude}`)
+      },
+      (error) => {
+        console.warn('❌ Geolocation error:', error.message)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000 // Cache for 30 seconds
+      }
+    )
+    
+    // Store watch ID for cleanup
+    setLocationSharing(prev => ({
+      ...prev,
+      [rideId]: { watchId, captainId, isSharing: true }
+    }))
+    
+    console.log(`✅ Location sharing started for ride ${rideId}`)
+  }
+
+  // Stop sharing location
+  const stopLocationSharing = (rideId, socket) => {
+    const sharing = locationSharing[rideId]
+    if (!sharing) return
+    
+    // Stop watching position
+    if (sharing.watchId) {
+      navigator.geolocation.clearWatch(sharing.watchId)
+    }
+    
+    // Notify server
+    const userId = getUserId()
+    socket.emit('stop:location-sharing', {
+      userId: userId,
+      rideId: rideId,
+      captainId: sharing.captainId
+    })
+    
+    // Remove from state
+    setLocationSharing(prev => {
+      const updated = { ...prev }
+      delete updated[rideId]
+      return updated
+    })
+    
+    console.log(`🛑 Stopped location sharing for ride ${rideId}`)
+  }
 
   const loadAcceptedRides = async () => {
     try {
@@ -62,7 +148,7 @@ export default function UserAcceptedRides() {
 
       // Then fetch fresh data from server
       const token = localStorage.getItem('token') || localStorage.getItem('captain_token')
-      const userId = localStorage.getItem('userId') || 'user123'
+      const userId = getUserId()
       
       const response = await fetch(`http://localhost:3000/api/user/${userId}/accepted-rides`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -85,7 +171,7 @@ export default function UserAcceptedRides() {
     
     try {
       const token = localStorage.getItem('token') || localStorage.getItem('captain_token')
-      const userId = localStorage.getItem('userId') || 'user123'
+      const userId = getUserId()
       
       // Send cancel request to server
       const response = await fetch(`http://localhost:3000/api/user/ride/${rideId}/cancel`, {
@@ -116,7 +202,7 @@ export default function UserAcceptedRides() {
         const socket = io('http://localhost:3000', { auth: { token } })
         socket.emit('ride:cancelled', { 
           rideId, 
-          userId, 
+          userId: getUserId(), 
           acceptanceId,
           cancelledBy: 'user'
         })
@@ -180,14 +266,23 @@ export default function UserAcceptedRides() {
           alignItems: 'center',
           marginBottom: '24px'
         }}>
-          <h1 style={{ 
-            color: 'white', 
-            fontSize: '28px', 
-            fontWeight: '700',
-            margin: 0
-          }}>
-            🎫 My Booked Rides
-          </h1>
+          <div>
+            <h1 style={{ 
+              color: 'white', 
+              fontSize: '28px', 
+              fontWeight: '700',
+              margin: 0
+            }}>
+              🎫 My Booked Rides
+            </h1>
+            <div style={{ 
+              color: 'rgba(255,255,255,0.8)', 
+              fontSize: '12px', 
+              marginTop: '4px' 
+            }}>
+              User ID: {getUserId()}
+            </div>
+          </div>
         </div>
 
       {/* Rides List */}
