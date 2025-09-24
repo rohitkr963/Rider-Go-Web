@@ -40,7 +40,8 @@ export default function Notifications() {
         const token = localStorage.getItem('token')
         const userId = getUserId()
         if (!token || !userId) return
-        const res = await fetch(`http://localhost:3000/api/notifications?userId=${userId}`, {
+        const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+        const res = await fetch(`${BACKEND}/api/notifications?userId=${userId}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (!res.ok) throw new Error('Failed to fetch')

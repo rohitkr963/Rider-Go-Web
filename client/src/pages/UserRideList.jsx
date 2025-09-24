@@ -623,18 +623,20 @@ export default function UserRideList() {
       if (!fromLat || !fromLng || !toLat || !toLng) return
       try {
         setLoading(true)
-        const res = await fetch('http://localhost:3000/api/ride/plan', {
+        const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+        const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
+        const res = await fetch(`${BACKEND}/api/ride/plan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fromLat: Number(fromLat), fromLng: Number(fromLng), toLat: Number(toLat), toLng: Number(toLng), fromName, toName })
         })
-  await res.json()
+        await res.json()
         if (!cancelled && res.ok) {
           // Initial placeholder to show route context if needed
           setRides([])
           // Start real-time search for captains on this route
           const token = localStorage.getItem('token') || localStorage.getItem('captain_token')
-          const s = io('http://localhost:3000', { auth: { token } })
+          const s = io(SOCKET_URL, { auth: { token } })
           socketRef.current = s
           console.log('🔍 Sending route search request:', { fromLat, fromLng, toLat, toLng })
           s.emit('user:route:search', { fromLat, fromLng, toLat, toLng })

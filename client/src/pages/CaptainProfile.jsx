@@ -17,7 +17,8 @@ export default function CaptainProfile() {
   const socketRef = useRef(null)
   useEffect(() => {
     const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-    const s = io('http://localhost:3000', { auth: { token } })
+    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
+    const s = io(SOCKET_URL, { auth: { token } })
     socketRef.current = s
     s.on('connect', () => console.log('⭐ captain profile socket connected', s.id))
     s.on('captain:rating-updated', payload => {
@@ -42,8 +43,9 @@ export default function CaptainProfile() {
 
   const loadProfile = async () => {
     try {
-      const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-      const res = await fetch('http://localhost:3000/api/auth/captain/profile', {
+  const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+  const res = await fetch(BACKEND + '/api/auth/captain/profile', {
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await res.json()
@@ -80,8 +82,9 @@ export default function CaptainProfile() {
     setSaving(true)
     setError('')
     try {
-      const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-      const res = await fetch('http://localhost:3000/api/auth/captain/profile', {
+  const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+  const res = await fetch(BACKEND + '/api/auth/captain/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

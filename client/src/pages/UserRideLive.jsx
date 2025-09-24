@@ -110,7 +110,8 @@ export default function UserRideLive() {
   // This endpoint is public on backend; include Authorization only if token exists
   const headers = token ? { Authorization: `Bearer ${token}` } : {}
   // Use relative path so dev proxy and production host work correctly
-  const response = await fetch(`http://localhost:3000/api/ride/${rideId}`, { headers })
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+  const response = await fetch(`${BACKEND}/api/ride/${rideId}`, { headers })
       
       if (response.ok) {
         const data = await response.json()
@@ -120,7 +121,7 @@ export default function UserRideLive() {
         let size = (typeof ride.size === 'number') ? ride.size : null
         if (ride.captainId) {
           try {
-            const captainResponse = await fetch(`http://localhost:3000/api/auth/captain/${ride.captainId}/seating`)
+            const captainResponse = await fetch(`${BACKEND}/api/auth/captain/${ride.captainId}/seating`)
             if (captainResponse.ok) {
               const captainData = await captainResponse.json()
               if (typeof captainData.seatingCapacity === 'number') size = captainData.seatingCapacity
@@ -421,7 +422,8 @@ export default function UserRideLive() {
 
   React.useEffect(() => {
     const token = localStorage.getItem('token') || localStorage.getItem('captain_token')
-    const s = io('http://localhost:3000', { auth: { token } })
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
+  const s = io(SOCKET_URL, { auth: { token } })
     socketRef.current = s
     
     // Join ride room for real-time updates

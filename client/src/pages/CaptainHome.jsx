@@ -22,6 +22,8 @@ export default function CaptainHome() {
   const [continueRideData, setContinueRideData] = React.useState(null)
   const [stats, setStats] = React.useState({ earningsToday: 0, completed: 0, rating: 4.9 })
   const socketRef = React.useRef(null)
+
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
   const [fromQuery, setFromQuery] = React.useState('')
   const [toQuery, setToQuery] = React.useState('')
   const [fromSuggestions, setFromSuggestions] = React.useState([])
@@ -62,7 +64,8 @@ export default function CaptainHome() {
   // socket connection
   React.useEffect(() => {
     const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-    const s = io('http://localhost:3000', { auth: { token } })
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
+  const s = io(SOCKET_URL, { auth: { token } })
     socketRef.current = s
     
     s.on('connect', () => {
@@ -90,7 +93,7 @@ export default function CaptainHome() {
     if (!token) return
     const send = async () => {
       try {
-        await fetch('http://localhost:3000/api/captain/location', {
+        await fetch(`${BACKEND}/api/captain/location`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ lat, lng: lon }),
@@ -223,7 +226,7 @@ export default function CaptainHome() {
   const acceptRide = async (req) => {
     const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
     try {
-      const res = await fetch('http://localhost:3000/api/ride/accept', {
+  const res = await fetch(`${BACKEND}/api/ride/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ rideId: req.id }),
@@ -243,7 +246,7 @@ export default function CaptainHome() {
   const rejectRide = async (req) => {
     const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
     try {
-      await fetch('http://localhost:3000/api/ride/reject', {
+  await fetch(`${BACKEND}/api/ride/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ rideId: req.id }),
@@ -256,7 +259,7 @@ export default function CaptainHome() {
     if (!activeRide) return
     const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
     try {
-      await fetch('http://localhost:3000/api/ride/complete', {
+  await fetch(`${BACKEND}/api/ride/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ rideId: activeRide.id }),
@@ -307,7 +310,7 @@ export default function CaptainHome() {
                     const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
                     if (!token) return
                     try {
-                      await fetch('http://localhost:3000/api/captain/status', {
+                      await fetch(`${BACKEND}/api/captain/status`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                         body: JSON.stringify({ status: next ? 'online' : 'offline' }),

@@ -63,6 +63,7 @@ const AcceptedRidesList = () => {
   const [loading, setLoading] = useState(true)
   const [ridesWithAddresses, setRidesWithAddresses] = useState([])
   const [userLocations, setUserLocations] = useState({}) // Track user locations
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
   // Profile view available via /captain/:captainId/profile
   // ...existing code...
 
@@ -143,7 +144,8 @@ const AcceptedRidesList = () => {
   const fetchServerRides = async (captainIdParam) => {
     try {
       const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-      const base = 'http://localhost:3000/api/accepted-rides'
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+  const base = `${BACKEND}/api/accepted-rides`
       const url = captainIdParam ? `${base}?captainId=${encodeURIComponent(captainIdParam)}` : base
       const headers = token ? { Authorization: `Bearer ${token}` } : {}
       const res = await fetch(url, { headers })
@@ -181,7 +183,8 @@ const AcceptedRidesList = () => {
     }
 
     // Connect to socket for real-time updates
-    const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000')
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
+  const socket = io(SOCKET_URL)
 
     socket.on('connect', async () => {
       console.log('✅ AcceptedRidesList socket connected, ID:', socket.id)
@@ -194,7 +197,7 @@ const AcceptedRidesList = () => {
 
         if (!captainId && token) {
           try {
-            const res = await fetch('http://localhost:3000/api/auth/captain/profile', { headers: { Authorization: `Bearer ${token}` } })
+            const res = await fetch(`${BACKEND}/api/auth/captain/profile`, { headers: { Authorization: `Bearer ${token}` } })
             if (res.ok) {
               const data = await res.json()
               captainId = data?.profile?._id || data?.profile?.id || data?.id
@@ -461,12 +464,13 @@ const AcceptedRidesList = () => {
               // Test API endpoint
               try {
                 console.log('🧪 Testing API endpoint...')
-                const testResponse = await fetch('http://localhost:3000/test-accepted-rides')
+                const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+                const testResponse = await fetch(`${BACKEND}/test-accepted-rides`)
                 const testResult = await testResponse.json()
                 console.log('🧪 API Test Result:', testResult)
                 
                 // Test database connection by fetching existing rides
-                const dbResponse = await fetch('http://localhost:3000/api/accepted-rides')
+                const dbResponse = await fetch(`${BACKEND}/api/accepted-rides`)
                 const dbResult = await dbResponse.json()
                 console.log('🗄️ Database Test Result:', dbResult)
               } catch (error) {
@@ -756,7 +760,7 @@ const AcceptedRidesList = () => {
                           console.log('📋 Saving ride to history:', rideHistoryData)
                           
                           // Save ride to history
-                          const historyResponse = await fetch('http://localhost:3000/api/ride-history', {
+                          const historyResponse = await fetch(`${BACKEND}/api/ride-history`, {
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json'
@@ -768,7 +772,7 @@ const AcceptedRidesList = () => {
                             console.log('✅ Ride saved to history')
                             
                             // Now delete ride from accepted rides database
-                            const deleteResponse = await fetch(`http://localhost:3000/api/accepted-rides/${ride.rideId}`, {
+                            const deleteResponse = await fetch(`${BACKEND}/api/accepted-rides/${ride.rideId}`, {
                               method: 'DELETE',
                               headers: {
                                 'Content-Type': 'application/json'
@@ -784,14 +788,14 @@ const AcceptedRidesList = () => {
                               
                               try {
                                 // Get current ride data to update seat count
-                                const rideResponse = await fetch(`http://localhost:3000/api/ride/${ride.originalRideId || ride.rideId}`)
+                                const rideResponse = await fetch(`${BACKEND}/api/ride/${ride.originalRideId || ride.rideId}`)
                                 if (rideResponse.ok) {
                                   const rideData = await rideResponse.json()
                                   const currentOccupied = rideData.occupied || 0
                                   const newOccupied = Math.max(0, currentOccupied - passengerCount)
                                   
                                   // Update seat count
-                                  const updateResponse = await fetch(`http://localhost:3000/api/ride/${ride.originalRideId || ride.rideId}/occupancy`, {
+                                  const updateResponse = await fetch(`${BACKEND}/api/ride/${ride.originalRideId || ride.rideId}/occupancy`, {
                                     method: 'PATCH',
                                     headers: { 
                                       'Content-Type': 'application/json',

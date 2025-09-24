@@ -11,6 +11,8 @@ export default function CaptainProfileView() {
   const [myRating, setMyRating] = useState(null)
   const [submittingRating, setSubmittingRating] = useState(false)
 
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+
   useEffect(() => {
     if (!captainId) return
     // call loader and catch errors to keep linter happy about dependencies
@@ -22,7 +24,8 @@ export default function CaptainProfileView() {
   useEffect(() => {
     // create socket once when component mounts
     const token = localStorage.getItem('token') || localStorage.getItem('captain_token')
-    const s = io('http://localhost:3000', { auth: { token } })
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
+  const s = io(SOCKET_URL, { auth: { token } })
     socketRef.current = s
 
     s.on('connect', () => console.log('⭐ profile socket connected', s.id))
@@ -45,7 +48,8 @@ export default function CaptainProfileView() {
     try {
       setLoading(true)
       const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3000/api/auth/captain/${captainId}/profile`, {
+        const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+        const response = await fetch(`${BACKEND}/api/auth/captain/${captainId}/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -59,13 +63,16 @@ export default function CaptainProfileView() {
         try {
           const token = localStorage.getItem('token')
           if (token) {
-            const mr = await fetch(`http://localhost:3000/api/auth/captain/${captainId}/my-rating`, { headers: { Authorization: `Bearer ${token}` } })
+            const mr = await fetch(`${BACKEND}/api/auth/captain/${captainId}/my-rating`, { headers: { Authorization: `Bearer ${token}` } })
             if (mr.ok) {
               const mj = await mr.json()
               setMyRating(mj.myRating)
             }
           }
-        } catch (_) {}
+        } catch (err) {
+          /* ignore my-rating fetch errors */
+          void err
+        }
       } else {
         setError('Captain profile not found')
       }
@@ -107,7 +114,7 @@ export default function CaptainProfileView() {
       const token = localStorage.getItem('token')
       const headers = { 'Content-Type': 'application/json' }
       if (token) headers.Authorization = `Bearer ${token}`
-      const res = await fetch(`http://localhost:3000/api/auth/captain/${captainId}/rate`, {
+      const res = await fetch(`${BACKEND}/api/auth/captain/${captainId}/rate`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ rating: Number(value) })

@@ -65,7 +65,8 @@ const UserNavbar = () => {
     const userId = localStorage.getItem('userId')
     if (!token || !userId) return
 
-    const socket = io('http://localhost:3000', { auth: { token } })
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
+  const socket = io(SOCKET_URL, { auth: { token } })
     socketRef.current = socket
 
     socket.on('connect', () => {

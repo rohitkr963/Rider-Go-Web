@@ -24,7 +24,7 @@ export default function CaptainSignup() {
   const [loading, setLoading] = useState(false)
   const [fieldError, setFieldError] = useState({ email: '', contact: '', vehicleNumber: '' })
 
-  const BACKEND_URL = 'http://localhost:3000/api'
+  const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000') + '/api'
 
   const checkDuplicate = async (type, value) => {
     try {

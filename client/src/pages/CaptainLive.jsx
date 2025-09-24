@@ -262,6 +262,8 @@ export default function CaptainLive() {
   })
   const [bookingNotifications, setBookingNotifications] = useState([])
   const [showBookingPanel, setShowBookingPanel] = useState(false)
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
   const [userPickupLocations, setUserPickupLocations] = useState([]) // User pickup locations
   const [incomingRideRequest, setIncomingRideRequest] = useState(null)
   const [showAcceptRejectModal, setShowAcceptRejectModal] = useState(false)
@@ -324,7 +326,8 @@ export default function CaptainLive() {
         toName: rideData.destination.name,
         fare: rideData.fare || 150,
       }
-      const res = await fetch('http://localhost:3000/api/ride/plan', {
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+  const res = await fetch(`${BACKEND}/api/ride/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -395,7 +398,7 @@ export default function CaptainLive() {
         const rid = rideId
         if (!isMongoId(rid)) return
         try {
-          const res = await fetch(`http://localhost:3000/api/ride/${rid}`)
+    const res = await fetch(`${BACKEND}/api/ride/${rid}`)
           if (res.ok) {
             const data = await res.json()
             const r = data?.ride
@@ -718,7 +721,8 @@ export default function CaptainLive() {
   // Socket connection
   useEffect(() => {
     const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-    const socket = io('http://localhost:3000', { auth: { token } })
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
+  const socket = io(SOCKET_URL, { auth: { token } })
     socketRef.current = socket
     
     socket.on('connect', () => {
@@ -925,7 +929,7 @@ export default function CaptainLive() {
     if (!token) return
     ;(async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/auth/captain/profile', {
+        const res = await fetch(`${BACKEND}/api/auth/captain/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (res.ok) {
@@ -953,7 +957,7 @@ export default function CaptainLive() {
         const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
         const captainId = localStorage.getItem('captainId') || localStorage.getItem('captain_id') || 'unknown'
         
-        const response = await fetch(`http://localhost:3000/api/accepted-rides?captainId=${captainId}`, {
+        const response = await fetch(`${BACKEND}/api/accepted-rides?captainId=${captainId}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         
@@ -1124,7 +1128,7 @@ export default function CaptainLive() {
     try {
       const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
       console.debug('updateOccupied: sending PATCH', { rideIdForPatch, vehicleSize, occupied, next, bounded })
-      const res = await fetch(`http://localhost:3000/api/ride/${rideIdForPatch}/occupancy`, {
+      const res = await fetch(`${BACKEND}/api/ride/${rideIdForPatch}/occupancy`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ occupied: bounded })

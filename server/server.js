@@ -10,7 +10,21 @@ const Captain = require('./models/captainModel')
 dotenv.config()
 
 const app = express()
-app.use(cors())
+
+// CORS configuration for production
+const corsOptions = {
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://rider-go-web.vercel.app',
+    process.env.FRONTEND_URL || 'https://rider-go-web.vercel.app'
+  ].filter(Boolean),
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}
+
+app.use(cors(corsOptions))
 app.use(express.json())
 
 // Middleware to log all requests (moved to top)
@@ -110,7 +124,17 @@ app.get('/', (_req, res) => {
 
 // HTTP server + socket.io
 const server = http.createServer(app)
-const io = new Server(server, { cors: { origin: '*' } })
+const io = new Server(server, { 
+  cors: {
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000', 
+      'https://rider-go-web.vercel.app',
+      process.env.FRONTEND_URL || 'https://rider-go-web.vercel.app'
+    ].filter(Boolean),
+    credentials: true
+  }
+})
 
 app.locals.io = io
 

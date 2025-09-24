@@ -8,6 +8,8 @@ export default function UserAcceptedRides() {
   const [loading, setLoading] = useState(true)
   const [cancellingRide, setCancellingRide] = useState(null)
   const [locationSharing, setLocationSharing] = useState({})
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
   // Profile view is handled by dedicated route /captain/:captainId/profile
 
   // Load accepted rides from localStorage and server
@@ -20,7 +22,7 @@ export default function UserAcceptedRides() {
     if (acceptedRides.length === 0) return
 
     const token = localStorage.getItem('token') || localStorage.getItem('captain_token')
-    const socket = io('http://localhost:3000', { auth: { token } })
+    const socket = io(SOCKET_URL, { auth: { token } })
     
     socket.on('connect', () => {
       console.log('✅ User socket connected for accepted rides')
@@ -150,7 +152,8 @@ export default function UserAcceptedRides() {
       const token = localStorage.getItem('token') || localStorage.getItem('captain_token')
       const userId = getUserId()
       
-      const response = await fetch(`http://localhost:3000/api/user/${userId}/accepted-rides`, {
+  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+  const response = await fetch(`${BACKEND}/api/user/${userId}/accepted-rides`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       
@@ -174,7 +177,7 @@ export default function UserAcceptedRides() {
       const userId = getUserId()
       
       // Send cancel request to server
-      const response = await fetch(`http://localhost:3000/api/user/ride/${rideId}/cancel`, {
+  const response = await fetch(`${BACKEND}/api/user/ride/${rideId}/cancel`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -199,7 +202,7 @@ export default function UserAcceptedRides() {
         localStorage.removeItem(`bookingStatus_${rideId}_${currentUserEmail}`)
         
         // Emit socket event for real-time updates
-        const socket = io('http://localhost:3000', { auth: { token } })
+  const socket = io(SOCKET_URL, { auth: { token } })
         socket.emit('ride:cancelled', { 
           rideId, 
           userId: getUserId(), 

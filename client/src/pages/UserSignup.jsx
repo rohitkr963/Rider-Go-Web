@@ -15,7 +15,7 @@ export default function UserSignup() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const BACKEND_URL = 'http://localhost:3000/api' // <-- yahan backend URL
+  const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000') + '/api'
 
   const onSubmit = async (e) => {
     e.preventDefault()
