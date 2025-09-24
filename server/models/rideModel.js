@@ -37,5 +37,3 @@ module.exports = model('Ride', rideSchema)
 
 
 
-
-
