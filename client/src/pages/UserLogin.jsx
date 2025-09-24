@@ -18,7 +18,8 @@ export default function UserLogin() {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:3000/api/auth/user/login', {
+      const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+      const res = await fetch(`${BACKEND}/api/auth/user/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

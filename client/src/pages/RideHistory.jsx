@@ -166,7 +166,8 @@ const RideHistory = () => {
 
         if (!captainId && token) {
           try {
-            const res = await fetch('http://localhost:3000/api/captain/profile', { headers: { Authorization: `Bearer ${token}` } })
+            const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+            const res = await fetch(`${BACKEND}/api/captain/profile`, { headers: { Authorization: `Bearer ${token}` } })
             if (res.ok) {
               const data = await res.json()
               captainId = data?.profile?._id || data?.profile?.id || data?.id
@@ -181,7 +182,8 @@ const RideHistory = () => {
 
         // Fetch completed rides from API
         try {
-          const listRes = await fetch('http://localhost:3000/api/ride-history')
+          const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+          const listRes = await fetch(`${BACKEND}/api/ride-history`)
           if (listRes.ok) {
             const listJson = await listRes.json()
             const serverRides = listJson?.rides || []
