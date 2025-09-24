@@ -22,6 +22,7 @@ import UserProfile from './pages/UserProfile.jsx'
 import Notifications from './pages/Notifications.jsx'
 import UserAcceptedRides from './pages/UserAcceptedRides.jsx'
 import CaptainProfileView from './pages/CaptainProfileView.jsx'
+import FooterPage from './pages/FooterPage.jsx'
 
 const router = createBrowserRouter([
   {
@@ -48,6 +49,7 @@ const router = createBrowserRouter([
       { path: 'user/accepted-rides', element: <UserAcceptedRides /> },
       { path: 'user/profile', element: <UserProfile /> },
   { path: 'user/notifications', element: <Notifications /> },
+      { path: 'footer', element: <FooterPage /> },
     ],
   },
 ])

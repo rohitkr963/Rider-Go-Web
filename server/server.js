@@ -114,9 +114,16 @@ const io = new Server(server, { cors: { origin: '*' } })
 
 app.locals.io = io
 
-// In-memory active rides registry for quick demo matching
-// Map<rideId, { rideId, captainId, pickupCoords:{lat,lng}, dropCoords:{lat,lng}, last:{lat,lng,ts} }>
+// Global activeRides map to track live captains
 const activeRides = new Map()
+
+// Debug endpoint to clear all activeRides
+app.get('/api/debug/clear-active-rides', (req, res) => {
+  const count = activeRides.size
+  activeRides.clear()
+  console.log(`🧹 Manually cleared ${count} active rides`)
+  res.json({ message: `Cleared ${count} active rides`, activeRides: activeRides.size })
+})
 
 function haversineMeters(a, b) {
   const R = 6371000
@@ -193,9 +200,17 @@ function rideMatchesCriteria(ride, crit) {
   const dToFrom = haversineMeters(ride.dropCoords || {}, from)
   
   // If captain is between user's pickup and destination, or vice versa
-  const THRESHOLD = 3000 // meters - increased threshold
+  const THRESHOLD = 5000 // meters - increased threshold to 5km for more matches
   if (dFrom <= THRESHOLD || dTo <= THRESHOLD) return true
   if (dFromTo <= THRESHOLD || dToFrom <= THRESHOLD) return true
+  
+  // Additional flexible matching - if captain route overlaps with user route in any way
+  const userRouteDistance = haversineMeters(from, to)
+  if (userRouteDistance > 0) {
+    // If captain pickup/drop is within reasonable distance of user route line
+    const avgDistance = (dFrom + dTo + dFromTo + dToFrom) / 4
+    if (avgDistance <= THRESHOLD * 1.5) return true
+  }
   
   return false
 }
@@ -218,32 +233,152 @@ function emitMatches(socket) {
   const from = { lat: Number(crit.fromLat), lng: Number(crit.fromLng) }
   const to = { lat: Number(crit.toLat), lng: Number(crit.toLng) }
   
+  console.log('🔍 EmitMatches called, activeRides count:', activeRides.size)
+  console.log('🔍 Search criteria:', crit)
+  
+  // Clean up old rides without real-time location (older than 5 minutes)
+  const now = Date.now()
+  const ridesToRemove = []
+  activeRides.forEach((r, rideId) => {
+    if (!r.last || !r.last.lat || !r.last.lng) {
+      // If no location data and ride is older than 5 minutes, remove it
+      const rideAge = now - (r.startTime ? new Date(r.startTime).getTime() : now)
+      if (rideAge > 5 * 60 * 1000) { // 5 minutes
+        ridesToRemove.push(rideId)
+      }
+    }
+  })
+  
+  ridesToRemove.forEach(rideId => {
+    console.log('🧹 Cleaning up old ride without location:', rideId)
+    activeRides.delete(rideId)
+  })
+  
+  // Only show captains who have actively started rides and are sending location updates
   activeRides.forEach((r) => {
-    if (rideMatchesCriteria(r, crit)) {
-      matches.push({ rideId: r.rideId, captainId: r.captainId, captainEmail: r.captainEmail, captainName: r.captainName, lat: r.last?.lat, lng: r.last?.lng, ts: r.last?.ts })
-    } else {
-      // Fallback: Show any captain that's moving and reasonably close
-      if (r.last && r.last.lat && r.last.lng) {
-        const dFrom = haversineMeters(r.last, from)
-        const dTo = haversineMeters(r.last, to)
+    console.log('🔍 Processing activeRide:', r.rideId)
+    console.log('🔍 Ride details:', {
+      rideId: r.rideId,
+      captainName: r.captainName,
+      status: r.status,
+      pickupCoords: r.pickupCoords,
+      dropCoords: r.dropCoords,
+      last: r.last
+    })
+    
+    // Skip if ride is not active (ended, completed, cancelled)
+    if (r.status && r.status !== 'active' && r.status !== 'ongoing') {
+      console.log('🔍 ❌ Skipping non-active ride:', r.rideId, 'status:', r.status)
+      return
+    }
+    
+    // Include captains who have started rides (with or without location updates)
+    if ((r.last && r.last.lat && r.last.lng) || (r.pickupCoords && r.pickupCoords.lat && r.pickupCoords.lng)) {
+      console.log('🔍 Captain has location data (real-time or pickup), checking criteria match')
+      
+      const criteriaMatch = rideMatchesCriteria(r, crit)
+      console.log('🔍 Criteria match result:', criteriaMatch)
+      
+      if (criteriaMatch) {
+        matches.push({ 
+          rideId: r.rideId, 
+          captainId: r.captainId, 
+          captainEmail: r.captainEmail, 
+          captainName: r.captainName, 
+          lat: r.last?.lat || r.pickupCoords?.lat, 
+          lng: r.last?.lng || r.pickupCoords?.lng, 
+          ts: r.last?.ts || Date.now(),
+          // Add starting point coordinates if available
+          startLat: r.startLocation?.lat || r.pickupCoords?.lat || null,
+          startLng: r.startLocation?.lng || r.pickupCoords?.lng || null,
+          isActive: r.last?.lat ? true : false, // True if real-time location, false if pickup location
+          isStarting: !r.last?.lat ? true : false // Flag for captains who just started
+        })
+        console.log('🔍 ✅ Added matching active ride:', r.rideId)
+        console.log('🔍 Starting location data:', { 
+          startLocation: r.startLocation, 
+          pickupCoords: r.pickupCoords,
+          startLat: r.startLocation?.lat || r.pickupCoords?.lat || null,
+          startLng: r.startLocation?.lng || r.pickupCoords?.lng || null
+        })
+      } else {
+        // Show captains that are nearby and actively running
+        const currentLocation = r.last || r.pickupCoords
+        const dFrom = haversineMeters(currentLocation, from)
+        const dTo = haversineMeters(currentLocation, to)
         const dRoute = haversineMeters(from, to)
         
-        // If captain is within 5km of user's route
-        if (dFrom <= 5000 || dTo <= 5000 || (dFrom + dTo) <= dRoute * 1.5) {
+        console.log('🔍 Checking nearby criteria:', { dFrom, dTo, dRoute })
+        
+        // If captain is within 10km of user's route and actively running (increased range)
+        if (dFrom <= 10000 || dTo <= 10000 || (dFrom + dTo) <= dRoute * 2.0) {
           matches.push({ 
             rideId: r.rideId, 
             captainId: r.captainId, 
             captainEmail: r.captainEmail, 
             captainName: r.captainName, 
-            lat: r.last?.lat, 
-            lng: r.last?.lng, 
-            ts: r.last?.ts,
-            isNearby: true // Flag to show this is a nearby captain
+            lat: r.last?.lat || r.pickupCoords?.lat, 
+            lng: r.last?.lng || r.pickupCoords?.lng, 
+            ts: r.last?.ts || Date.now(),
+            // Add starting point coordinates if available
+            startLat: r.startLocation?.lat || r.pickupCoords?.lat || null,
+            startLng: r.startLocation?.lng || r.pickupCoords?.lng || null,
+            isNearby: true, // This is a nearby actively running captain
+            isStarting: !r.last?.lat ? true : false // Flag for captains who just started
           })
+          console.log('🔍 ✅ Added nearby active ride:', r.rideId)
+        } else {
+          console.log('🔍 ❌ Captain too far from route')
         }
       }
+    } else {
+      console.log('🔍 ❌ Skipping ride - no real-time location:', r.rideId)
     }
   })
+  
+  console.log('🔍 Total active captain matches found:', matches.length)
+  
+  // If few matches found, add more captains within broader area
+  if (matches.length < 5 && activeRides.size > 0) {
+    console.log('🔍 EXPANDING: Found only', matches.length, 'matches, expanding search area')
+    activeRides.forEach((r) => {
+      // Skip if already added
+      const alreadyAdded = matches.some(m => m.rideId === r.rideId)
+      if (alreadyAdded) return
+      
+      // Skip if ride is not active (ended, completed, cancelled)
+      if (r.status && r.status !== 'active' && r.status !== 'ongoing') {
+        console.log('🔍 ❌ Skipping non-active ride in expansion:', r.rideId, 'status:', r.status)
+        return
+      }
+      
+      if ((r.last && r.last.lat && r.last.lng) || (r.pickupCoords && r.pickupCoords.lat && r.pickupCoords.lng)) {
+        // Add captains within 15km radius for broader coverage
+        const currentLocation = r.last || r.pickupCoords
+        const dFrom = haversineMeters(currentLocation, from)
+        const dTo = haversineMeters(currentLocation, to)
+        
+        if (dFrom <= 15000 || dTo <= 15000) {
+          matches.push({
+            rideId: r.rideId,
+            captainId: r.captainId,
+            captainEmail: r.captainEmail,
+            captainName: r.captainName,
+            lat: r.last?.lat || r.pickupCoords?.lat,
+            lng: r.last?.lng || r.pickupCoords?.lng,
+            ts: r.last?.ts || Date.now(),
+            isExpanded: true, // Flag to show this is expanded search
+            isStarting: !r.last?.lat ? true : false // Flag for captains who just started
+          })
+          console.log('🔍 EXPANDED: Added captain within 15km:', r.captainName)
+        }
+      } else {
+        // Skip captains who haven't started rides
+        console.log('🔍 ❌ Skipping captain without location data in expansion:', r.rideId)
+      }
+    })
+    console.log('🔍 TOTAL after expansion:', matches.length, 'rides')
+  }
   
   if (matches.length > 0) {
     socket.emit('user:route:results', { items: matches })
@@ -655,8 +790,13 @@ io.on('connection', (socket) => {
 
   // captain announces ride start to be discoverable by users (Where is My Train style)
   socket.on('ride:start', async (data) => {
+    console.log('🚗 RIDE:START event received:', data)
     const { rideId, captainId, captainName, pickup, destination, route, distance, duration, status, startTime } = data || {}
-    if (!rideId || !pickup || !destination) return
+    console.log('🚗 Extracted data - rideId:', rideId, 'pickup:', pickup, 'destination:', destination)
+    if (!rideId || !pickup || !destination) {
+      console.log('❌ Missing required data for ride:start')
+      return
+    }
     
     let captainEmail = 'captain@ridergo.com'
     let finalCaptainName = captainName || 'Captain'
@@ -699,8 +839,11 @@ io.on('connection', (socket) => {
     
     activeRides.set(String(rideId), rideData)
     console.log('🚗 Captain ride started:', rideData.rideId, 'by', rideData.captainName)
+    console.log('🚗 ActiveRides now contains:', activeRides.size, 'rides')
+    console.log('🚗 RideData stored:', JSON.stringify(rideData, null, 2))
     
     // Notify all users about new available ride
+    console.log('🚗 Notifying all users about new ride')
     io.sockets.sockets.forEach((s) => emitMatches(s))
   // notify subscribers in the ride room with full ride info
   io.to(`ride:${rideId}`).emit('ride:info', rideData)
@@ -708,10 +851,25 @@ io.on('connection', (socket) => {
 
   // captain ends ride
   socket.on('ride:end', (data) => {
+    console.log('🏁 RIDE:END event received:', data)
     const { rideId } = data || {}
     if (rideId) {
-      activeRides.delete(String(rideId))
-      io.sockets.sockets.forEach((s) => emitMatches(s))
+      const rideIdStr = String(rideId)
+      const removedRide = activeRides.get(rideIdStr)
+      
+      if (removedRide) {
+        console.log('🏁 Removing ended ride from activeRides:', rideIdStr, 'by', removedRide.captainName)
+        activeRides.delete(rideIdStr)
+        
+        // Notify all users that this ride is no longer available
+        console.log('🏁 Notifying all users about ride end')
+        io.sockets.sockets.forEach((s) => emitMatches(s))
+        
+        // Also emit specific ride end event for real-time updates
+        io.emit('ride:ended', { rideId: rideIdStr, captainId: removedRide.captainId })
+      } else {
+        console.log('🏁 ❌ Ride not found in activeRides:', rideIdStr)
+      }
     }
   })
   socket.on('registerCaptain', ({ captainId }) => {
@@ -835,8 +993,13 @@ io.on('connection', (socket) => {
   })
   // Captain live location updates
   socket.on('location:update', async (data) => {
+    console.log('📍 LOCATION:UPDATE event received:', data)
     const { lat, lng, rideId, heading } = data || {}
-    if (typeof lat !== 'number' || typeof lng !== 'number') return
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      console.log('❌ Invalid lat/lng in location:update:', lat, lng)
+      return
+    }
+    console.log('📍 Valid location update - rideId:', rideId, 'lat:', lat, 'lng:', lng)
     // persist last known location for captain users
     if (socket.user && socket.user.role === 'captain') {
       try {
@@ -920,6 +1083,11 @@ io.on('connection', (socket) => {
             activeRides.set(String(rideId), activeRide)
             
             console.log('📍 Captain location update:', { lat, lng }, 'Trail length:', activeRide.trail.length)
+            console.log('📍 Updated activeRide.last:', activeRide.last)
+            console.log('📍 Notifying all users about location update')
+            
+            // Notify all users about updated captain location
+            io.sockets.sockets.forEach((s) => emitMatches(s))
           }
           
           // emit location update to ride room

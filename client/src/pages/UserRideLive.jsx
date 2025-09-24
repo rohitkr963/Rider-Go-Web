@@ -351,42 +351,65 @@ export default function UserRideLive() {
     if (end) map.fitBounds(L.latLngBounds([start, end]), { padding: [40, 40] })
 
     if (end) {
-      fetch(`https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`)
-        .then(r => {
-          if (!r.ok) {
-            console.error('OSRM route fetch failed', r.status, r.statusText)
-            return null
-          }
-          return r.json()
-        })
-        .then(json => {
-          if (!json) return
-          // Check if map is still valid before proceeding
-          if (!map || !map._container) {
-            console.warn('Map container not available, skipping route rendering')
-            return
-          }
-          
-          const coords = json?.routes?.[0]?.geometry?.coordinates || []
-          const latlngs = coords.map(c => [c[1], c[0]])
-          if (userRouteRef.current && map.hasLayer(userRouteRef.current)) {
-            map.removeLayer(userRouteRef.current)
-          }
-          userRouteRef.current = L.polyline(latlngs, { color: '#3b82f6', weight: 4 }).addTo(map)
+      // Generate curved route instead of OSRM call
+      console.log('🛣️ Generating curved user route (OSRM disabled)')
+      
+      // Check if map is still valid before proceeding
+      if (!map || !map._container) {
+        console.warn('Map container not available, skipping route rendering')
+        return
+      }
+      
+      // Generate curved route points
+      const startLat = Number(fromLat)
+      const startLng = Number(fromLng)
+      const endLat = Number(toLat)
+      const endLng = Number(toLng)
+      
+      const distance = Math.sqrt(Math.pow(endLat - startLat, 2) + Math.pow(endLng - startLng, 2))
+      const numPoints = Math.max(12, Math.min(25, Math.floor(distance * 2500)))
+      
+      const curvePoints = []
+      for (let i = 0; i <= numPoints; i++) {
+        const t = i / numPoints
+        const lat = startLat + (endLat - startLat) * t
+        const lng = startLng + (endLng - startLng) * t
+        
+        // Add curve effects for realistic path
+        const mainCurve = Math.sin(t * Math.PI * 1.3) * 0.004
+        const roadVariation = Math.sin(t * Math.PI * 2.5) * 0.002
+        const perpVariation = Math.cos(t * Math.PI * 3.5) * 0.001
+        
+        curvePoints.push([
+          lat + mainCurve - perpVariation,
+          lng - mainCurve + roadVariation
+        ])
+      }
+      
+      // Remove existing user route
+      if (userRouteRef.current && map.hasLayer(userRouteRef.current)) {
+        map.removeLayer(userRouteRef.current)
+      }
+      
+      // Add curved user route
+      userRouteRef.current = L.polyline(curvePoints, { 
+        color: '#3b82f6', 
+        weight: 4,
+        opacity: 0.8,
+        dashArray: '15, 8',
+        className: 'user-route-line'
+      }).addTo(map)
 
-          const userIcon = L.divIcon({ className: '', html: `<div class="user-marker"><div class="user-label">USER</div></div>`, iconSize: [100, 28], iconAnchor: [50, 14] })
-          if (!userMarkerRef.current) {
-            userMarkerRef.current = L.marker([fromLat, fromLng], { icon: userIcon, interactive: false }).addTo(map)
-          }
+      const userIcon = L.divIcon({ className: '', html: `<div class="user-marker"><div class="user-label">USER</div></div>`, iconSize: [100, 28], iconAnchor: [50, 14] })
+      if (!userMarkerRef.current) {
+        userMarkerRef.current = L.marker([fromLat, fromLng], { icon: userIcon, interactive: false }).addTo(map)
+      }
 
-          if (toLat && toLng) {
-            L.marker([toLat, toLng]).addTo(map).bindPopup('Destination')
-          }
-          ensureMarkerStyles()
-        })
-        .catch(error => {
-          console.error('Error fetching route:', error)
-        })
+      if (toLat && toLng) {
+        L.marker([toLat, toLng]).addTo(map).bindPopup('Destination')
+      }
+      ensureMarkerStyles()
+      console.log('🛣️ ✅ Curved user route added with', curvePoints.length, 'points')
     } else animateCaptain(start)
 
     return () => {
