@@ -228,14 +228,7 @@ const RideHistory = () => {
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       padding: '20px'
     }}>
-      <div style={{
-        maxWidth: '800px',
-        margin: '0 auto',
-        background: 'white',
-        borderRadius: '12px',
-        padding: '24px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-      }}>
+      <div className="container panel">
         {/* Header */}
         <div style={{
           display: 'flex',
@@ -266,14 +259,27 @@ const RideHistory = () => {
               borderRadius: '6px',
               fontSize: '14px',
               fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
+              cursor: 'pointer'
             }}
           >
             ← Back to Home
           </button>
+        </div>
+
+        <div style={{ maxHeight: 480, overflowY: 'auto', display: 'grid', gap: 12 }}>
+          {ridesWithAddresses.map((ride) => (
+            <div key={ride.rideId} className="ride-card card-anim" style={{ padding: 12 }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 8 }}>
+                {ride.pickupAddress} → {ride.destinationAddress}
+              </div>
+              <div style={{ fontSize: '14px', color: '#666' }}>
+                Fare: ₹{ride.fare} | Distance: {ride.distance}km | Duration: {ride.duration}min
+              </div>
+              <div style={{ fontSize: '12px', color: '#999', marginTop: 4 }}>
+                {new Date(ride.completedAt).toLocaleDateString()}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Stats Summary */}

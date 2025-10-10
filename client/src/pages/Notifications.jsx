@@ -30,7 +30,7 @@ export default function Notifications() {
     try {
       const raw = localStorage.getItem('notifications')
       return raw ? JSON.parse(raw) : []
-    } catch (e) { return [] }
+    } catch { return [] }
   })
 
   useEffect(() => {
@@ -69,103 +69,142 @@ export default function Notifications() {
     window.dispatchEvent(new Event('storage'))
   }
 
-
   return (
-    <div style={{ minHeight: '100vh', background: '#f9fafb', paddingTop: 20 }}>
-      <div style={{ padding: 20, maxWidth: 900, margin: '0 auto' }}>
-        <h2 style={{ fontSize: 28, fontWeight: 700, color: '#111', marginBottom: 24 }}>🔔 Notifications</h2>
-      <div style={{ marginTop: 12, marginBottom: 12 }}>
-        <button onClick={clearAll} style={{ padding: '8px 12px', borderRadius: 8, background: '#ef4444', color: 'white', border: 'none', cursor: 'pointer' }}>Clear all</button>
-      </div>
-      <div>
-        {items.length === 0 ? (
-          <div style={{ 
-            padding: 40, 
-            background: 'white', 
-            borderRadius: 12, 
-            textAlign: 'center',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🔔</div>
-            <h3 style={{ color: '#374151', marginBottom: 8 }}>No notifications yet</h3>
-            <p style={{ color: '#6b7280', margin: 0 }}>You'll see ride updates and important messages here</p>
-          </div>
-        ) : (
-          <div style={{ background: 'white', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            {items.map((n, idx) => (
-              <div key={idx} style={{ 
-                padding: 16, 
-                borderBottom: idx < items.length - 1 ? '1px solid #e5e7eb' : 'none',
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'flex-start',
-                gap: 16
+    <div style={{ 
+      minHeight: '100vh', 
+      background: '#f9fafb', 
+      paddingTop: 'clamp(12px, 3vw, 20px)',
+      padding: 'clamp(12px, 3vw, 20px)'
+    }}>
+      <div className="container panel" style={{ 
+        maxWidth: '100%',
+        margin: '0 auto',
+        padding: 'clamp(16px, 4vw, 24px)'
+      }}>
+        <h2 style={{ 
+          fontSize: 'clamp(24px, 6vw, 28px)', 
+          fontWeight: 700, 
+          color: '#111', 
+          marginBottom: 'clamp(16px, 4vw, 24px)' 
+        }}>
+          🔔 Notifications
+        </h2>
+        <div style={{ 
+          marginTop: 'clamp(8px, 2vw, 12px)', 
+          marginBottom: 'clamp(8px, 2vw, 12px)' 
+        }}>
+          <button 
+            onClick={clearAll} 
+            className="btn btn-anim" 
+            style={{ 
+              background: '#ef4444',
+              padding: 'clamp(8px, 2vw, 12px) clamp(16px, 4vw, 20px)',
+              fontSize: 'clamp(12px, 2.5vw, 14px)',
+              fontWeight: 600
+            }}
+          >
+            Clear all
+          </button>
+        </div>
+
+        <div>
+          {items.length === 0 ? (
+            <div className="panel" style={{ 
+              padding: 'clamp(24px, 6vw, 40px)', 
+              textAlign: 'center',
+              background: '#fff',
+              border: '1px solid #e5e7eb',
+              borderRadius: 12
+            }}>
+              <div style={{ fontSize: 'clamp(32px, 8vw, 48px)', marginBottom: 'clamp(12px, 3vw, 16px)' }}>🔔</div>
+              <h3 style={{ 
+                color: '#374151', 
+                marginBottom: 'clamp(6px, 1.5vw, 8px)',
+                fontSize: 'clamp(18px, 4vw, 20px)',
+                fontWeight: 600
               }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ 
-                    fontWeight: 600, 
-                    color: '#111', 
-                    marginBottom: 4,
-                    lineHeight: 1.4
-                  }}>
-                    {n.message}
-                  </div>
-                  <div style={{ 
-                    fontSize: 12, 
-                    color: '#6b7280',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8
-                  }}>
-                    <span style={{
-                      background: getTypeColor(n.type),
-                      color: 'white',
-                      padding: '2px 6px',
-                      borderRadius: 4,
-                      fontSize: 10,
-                      fontWeight: 600,
-                      textTransform: 'uppercase'
-                    }}>
-                      {getTypeLabel(n.type)}
-                    </span>
-                    <span>{new Date(n.timestamp).toLocaleString()}</span>
-                  </div>
-                  {n.data && (
+                No notifications yet
+              </h3>
+              <p style={{ 
+                color: '#6b7280', 
+                margin: 0,
+                fontSize: 'clamp(14px, 3vw, 16px)',
+                lineHeight: 1.5
+              }}>
+                You'll see ride updates and important messages here
+              </p>
+            </div>
+          ) : (
+            <div className="panel" style={{ 
+              overflow: 'hidden',
+              background: '#fff',
+              border: '1px solid #e5e7eb',
+              borderRadius: 12
+            }}>
+              {items.map((n, idx) => (
+                <div key={idx} className="ride-card card-anim" style={{ 
+                  borderBottom: idx < items.length - 1 ? '1px solid #e5e7eb' : 'none', 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'flex-start', 
+                  gap: 'clamp(12px, 3vw, 16px)',
+                  padding: 'clamp(12px, 3vw, 16px)',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
                     <div style={{ 
-                      marginTop: 8, 
-                      fontSize: 12, 
-                      color: '#6b7280',
-                      background: '#f9fafb',
-                      padding: 8,
-                      borderRadius: 6
+                      fontWeight: 600, 
+                      color: '#111', 
+                      marginBottom: 'clamp(2px, 0.5vw, 4px)', 
+                      lineHeight: 1.4,
+                      fontSize: 'clamp(14px, 3vw, 16px)'
                     }}>
-                      {n.data.pickup && <div>📍 From: {n.data.pickup}</div>}
-                      {n.data.destination && <div>🏁 To: {n.data.destination}</div>}
-                      {n.data.captainName && <div>👨‍✈️ Captain: {n.data.captainName}</div>}
-                      {n.data.passengerCount && <div>👥 Passengers: {n.data.passengerCount}</div>}
-                      {n.data.estimatedFare && <div>💰 Fare: ₹{n.data.estimatedFare}</div>}
-                      {n.data.occupiedSeats && n.data.totalSeats && <div>🪑 Seats: {n.data.occupiedSeats}/{n.data.totalSeats}</div>}
+                      {n.message}
                     </div>
+                    <div style={{ 
+                      fontSize: 'clamp(10px, 2.5vw, 12px)', 
+                      color: '#6b7280', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 'clamp(6px, 1.5vw, 8px)',
+                      flexWrap: 'wrap'
+                    }}>
+                      <span style={{ 
+                        background: getTypeColor(n.type), 
+                        color: 'white', 
+                        padding: 'clamp(2px, 0.5vw, 4px) clamp(4px, 1vw, 6px)', 
+                        borderRadius: 4, 
+                        fontSize: 'clamp(8px, 2vw, 10px)', 
+                        fontWeight: 600, 
+                        textTransform: 'uppercase' 
+                      }}>
+                        {getTypeLabel(n.type)}
+                      </span>
+                      <span style={{ fontSize: 'clamp(10px, 2.5vw, 12px)' }}>
+                        {new Date(n.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    {n.data && (
+                      <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280', background: '#f9fafb', padding: 8, borderRadius: 6 }}>
+                        {n.data.pickup && <div>📍 From: {n.data.pickup}</div>}
+                        {n.data.destination && <div>🏁 To: {n.data.destination}</div>}
+                        {n.data.captainName && <div>👨‍✈️ Captain: {n.data.captainName}</div>}
+                        {n.data.passengerCount && <div>👥 Passengers: {n.data.passengerCount}</div>}
+                        {n.data.estimatedFare && <div>💰 Fare: {n.data.estimatedFare}</div>}
+                        {n.data.occupiedSeats && n.data.totalSeats && <div>🪑 Seats: {n.data.occupiedSeats}/{n.data.totalSeats}</div>}
+                      </div>
+                    )}
+                  </div>
+                  {n.rideId && (
+                    <div style={{ fontSize: 11, color: '#9ca3af', background: '#f3f4f6', padding: '4px 8px', borderRadius: 4, fontFamily: 'monospace' }}>#{n.rideId.slice(-8)}</div>
                   )}
                 </div>
-                {n.rideId && (
-                  <div style={{ 
-                    fontSize: 11, 
-                    color: '#9ca3af',
-                    background: '#f3f4f6',
-                    padding: '4px 8px',
-                    borderRadius: 4,
-                    fontFamily: 'monospace'
-                  }}>
-                    #{n.rideId.slice(-8)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
+
 }

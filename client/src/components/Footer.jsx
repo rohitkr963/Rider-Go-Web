@@ -6,21 +6,21 @@ const Footer = () => {
     <footer style={{
       background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
       color: '#fff',
-      padding: '60px 0 30px',
-      marginTop: '60px'
-    }}>
+      padding: '40px 0 20px',
+      marginTop: '40px'
+    }} className="footer-responsive">
       <div style={{
         maxWidth: 1200,
         margin: '0 auto',
-        padding: '0 24px'
-      }}>
+        padding: '0 16px'
+      }} className="footer-container">
         {/* Main Footer Content */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
           gap: 40,
           marginBottom: 40
-        }}>
+        }} className="footer-grid">
           {/* Company Info */}
           <div>
             <h3 style={{
@@ -43,7 +43,7 @@ const Footer = () => {
             <div style={{
               display: 'flex',
               gap: 12
-            }}>
+            }} className="footer-social-icons">
               {['📱', '🌐', '📧', '📞'].map((icon, index) => (
                 <div key={index} style={{
                   background: 'rgba(59, 130, 246, 0.1)',
@@ -192,14 +192,14 @@ const Footer = () => {
           flexDirection: 'column',
           alignItems: 'center',
           gap: 16
-        }}>
+        }} className="footer-bottom">
           <div style={{
             display: 'flex',
             flexWrap: 'wrap',
             justifyContent: 'center',
             gap: 24,
             marginBottom: 16
-          }}>
+          }} className="footer-links">
             {[
               'Privacy Policy',
               'Terms of Service',
@@ -238,6 +238,173 @@ const Footer = () => {
           </div>
         </div>
       </div>
+
+      {/* Responsive CSS Styles */}
+      <style>{`
+        /* Mobile-first responsive styles */
+        @media (max-width: 640px) {
+          .footer-responsive {
+            padding: 24px 0 16px !important;
+            margin-top: 24px !important;
+          }
+          
+          .footer-container {
+            padding: 0 12px !important;
+          }
+          
+          .footer-grid {
+            grid-template-columns: 1fr !important;
+            gap: 24px !important;
+            margin-bottom: 24px !important;
+          }
+          
+          .footer-social-icons {
+            justify-content: center !important;
+            gap: 8px !important;
+          }
+          
+          .footer-bottom {
+            padding-top: 20px !important;
+            gap: 12px !important;
+          }
+          
+          .footer-links {
+            gap: 16px !important;
+            margin-bottom: 12px !important;
+            text-align: center !important;
+          }
+          
+          .footer-links a {
+            font-size: 13px !important;
+          }
+          
+          /* Company section mobile */
+          .footer-grid > div:first-child h3 {
+            font-size: 20px !important;
+            justify-content: center !important;
+            text-align: center !important;
+          }
+          
+          .footer-grid > div:first-child p {
+            text-align: center !important;
+            font-size: 14px !important;
+            margin-bottom: 16px !important;
+          }
+          
+          /* Section headers mobile */
+          .footer-grid > div h4 {
+            font-size: 16px !important;
+            text-align: center !important;
+            margin-bottom: 12px !important;
+          }
+          
+          /* Lists mobile */
+          .footer-grid > div ul {
+            text-align: center !important;
+          }
+          
+          .footer-grid > div ul li {
+            margin-bottom: 6px !important;
+            font-size: 13px !important;
+          }
+          
+          /* Contact section mobile */
+          .footer-grid > div:last-child > div {
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+          }
+          
+          .footer-grid > div:last-child > div > div {
+            justify-content: center !important;
+            font-size: 13px !important;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .footer-responsive {
+            padding: 32px 0 20px !important;
+            margin-top: 32px !important;
+          }
+          
+          .footer-container {
+            padding: 0 16px !important;
+          }
+          
+          .footer-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 28px !important;
+          }
+          
+          .footer-links {
+            gap: 20px !important;
+          }
+        }
+        
+        @media (min-width: 769px) and (max-width: 1023px) {
+          .footer-responsive {
+            padding: 48px 0 24px !important;
+          }
+          
+          .footer-container {
+            padding: 0 20px !important;
+          }
+          
+          .footer-grid {
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 32px !important;
+          }
+        }
+        
+        @media (min-width: 1024px) {
+          .footer-responsive {
+            padding: 60px 0 30px !important;
+            margin-top: 60px !important;
+          }
+          
+          .footer-container {
+            padding: 0 24px !important;
+          }
+          
+          .footer-grid {
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 40px !important;
+            margin-bottom: 40px !important;
+          }
+        }
+        
+        /* Hover effects for mobile */
+        @media (hover: none) {
+          .footer-social-icons > div:hover {
+            transform: none !important;
+          }
+        }
+        
+        /* Additional mobile improvements */
+        @media (max-width: 480px) {
+          .footer-responsive {
+            padding: 20px 0 12px !important;
+          }
+          
+          .footer-grid {
+            gap: 20px !important;
+          }
+          
+          .footer-social-icons > div {
+            width: 36px !important;
+            height: 36px !important;
+          }
+          
+          .footer-links {
+            flex-direction: column !important;
+            gap: 12px !important;
+          }
+          
+          .footer-bottom > div:last-child p {
+            font-size: 12px !important;
+          }
+        }
+      `}</style>
     </footer>
   )
 }

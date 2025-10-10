@@ -50,11 +50,11 @@ export default function CaptainRoute() {
     return () => {}
   }, [fromLat, fromLng, toLat, toLng])
 
-  const container = { maxWidth: 1200, margin: '0 auto', padding: 24 }
+  // Using global .container class for responsive layout
 
   return (
     <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
-      <div style={container}>
+      <div className="container">
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
           <h2 style={{ fontSize: 24, fontWeight: 800 }}>Route preview</h2>
           <Link to="/captain/home" style={{ textDecoration: 'none' }}>← Back to Home</Link>
@@ -63,7 +63,7 @@ export default function CaptainRoute() {
           <div><strong>From:</strong> {from}</div>
           <div><strong>To:</strong> {to}</div>
         </div>
-        <div id="rg-map" style={{ height: 560, border: '1px solid #e5e7eb', borderRadius: 12 }} />
+        <div id="rg-map" className="map-container" style={{ height: 560, border: '1px solid #e5e7eb', borderRadius: 12 }} />
       </div>
     </div>
   )

@@ -154,135 +154,45 @@ const UserNavbar = () => {
     return location.pathname === path
   }
 
-  // Styles
-  const container = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' }
-  const topbar = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }
-  const brand = { fontWeight: 800, fontSize: 22, color: '#000', textDecoration: 'none' }
-  const topRight = { display: 'flex', alignItems: 'center', gap: 20 }
-  const navLink = { 
-    color: '#111', 
-    textDecoration: 'none', 
-    fontWeight: 600,
-    padding: '8px 12px',
-    borderRadius: 8,
-    transition: 'all 0.2s ease'
-  }
-  const activeNavLink = { 
-    ...navLink, 
-    background: '#f3f4f6',
-    color: '#000'
-  }
-  const topBtn = { 
-    padding: '10px 16px', 
-    borderRadius: 999, 
-    fontWeight: 600, 
-    cursor: 'pointer', 
-    border: '1px solid #e5e7eb', 
-    background: '#fff',
-    textDecoration: 'none',
-    display: 'inline-block'
-  }
-  const topPrimary = { 
-    ...topBtn, 
-    background: '#000', 
-    color: '#fff', 
-    borderColor: '#000' 
-  }
-  const logoutBtn = {
-    ...topBtn,
-    background: '#ef4444',
-    color: '#fff',
-    borderColor: '#ef4444',
-    marginLeft: 12
-  }
+  // Mobile menu state
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    if (mobileOpen) document.body.classList.add('mobile-nav-open')
+    else document.body.classList.remove('mobile-nav-open')
+  }, [mobileOpen])
 
   return (
-    <div style={{ borderBottom: '1px solid #e5e7eb', background: '#fff', position: 'sticky', top: 0, zIndex: 100 }}>
-      <div style={{ ...container, ...topbar }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-          <Link to="/user/home" style={brand}>RiderGo</Link>
+    <div className="site-topbar">
+      <div className="topbar container">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Link to="/user/home" className="brand">RiderGo</Link>
+
           {isLoggedIn && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <Link 
-                to="/user/home" 
-                style={isActive('/user/home') ? activeNavLink : navLink}
-              >
-                🏠 Home
-              </Link>
-              <Link 
-                to="/user/rides" 
-                style={isActive('/user/rides') ? activeNavLink : navLink}
-              >
-                🚗 My Rides
-              </Link>
-              <Link 
-                to="/user/accepted-rides" 
-                style={isActive('/user/accepted-rides') ? activeNavLink : navLink}
-              >
-                📋 My Bookings
-              </Link>
+            <div className="nav-links" role="navigation" aria-label="Main navigation">
+              <Link to="/user/home" className={isActive('/user/home') ? 'nav-link active' : 'nav-link'}>🏠 Home</Link>
+              <Link to="/user/rides" className={isActive('/user/rides') ? 'nav-link active' : 'nav-link'}>🚗 My Rides</Link>
+              <Link to="/user/accepted-rides" className={isActive('/user/accepted-rides') ? 'nav-link active' : 'nav-link'}>📋 My Bookings</Link>
             </div>
           )}
         </div>
-        
-        <div style={topRight}>
+
+        <div className="top-right">
+          <button className="hamburger" aria-label="Toggle navigation" onClick={() => setMobileOpen(v => !v)}>☰</button>
           {!isLoggedIn ? (
             <>
-              <Link to="/user/login" style={navLink}>Log in</Link>
-              <Link to="/user/signup" style={{ textDecoration: 'none' }}>
-                <button style={topPrimary}>Sign up</button>
-              </Link>
+              <Link to="/user/login" className="nav-link">Log in</Link>
+              <Link to="/user/signup" className="btn btn-primary" style={{ textDecoration: 'none' }}>Sign up</Link>
             </>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ color: '#6b7280', fontSize: 14 }}>Welcome, {userName}</span>
-              {/* Notification bell */}
-              <button
-                onClick={() => navigate('/user/notifications')}
-                aria-label="Notifications"
-                title="Notifications"
-                style={{
-                  position: 'relative',
-                  width: 40,
-                  height: 40,
-                  borderRadius: 999,
-                  border: 'none',
-                  background: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer'
-                }}
-              >
+              <button className="notif-btn" onClick={() => navigate('/user/notifications')} aria-label="Notifications" title="Notifications">
                 <span style={{ fontSize: 18 }}>🔔</span>
-                {unreadCount > 0 && (
-                  <span style={{
-                    position: 'absolute',
-                    right: 6,
-                    top: 6,
-                    minWidth: 18,
-                    height: 18,
-                    padding: '0 4px',
-                    borderRadius: 9,
-                    background: '#ef4444',
-                    color: 'white',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>{unreadCount}</span>
-                )}
+                {unreadCount > 0 && (<span className="notif-badge">{unreadCount}</span>)}
               </button>
-              <Link 
-                to="/user/profile" 
-                style={isActive('/user/profile') ? { ...topPrimary, textDecoration: 'none' } : { ...topBtn, textDecoration: 'none' }}
-              >
-                👤 Profile
-              </Link>
-              <button style={logoutBtn} onClick={handleLogout}>
-                🚪 Logout
-              </button>
+              <Link to="/user/profile" className={isActive('/user/profile') ? 'btn btn-primary' : 'btn'} style={{ textDecoration: 'none' }}>👤 Profile</Link>
+              <button className="btn btn-logout" onClick={handleLogout}>🚪 Logout</button>
             </div>
           )}
         </div>

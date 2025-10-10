@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import io from 'socket.io-client'
 
 // Function to get readable address from coordinates
@@ -355,7 +355,7 @@ const AcceptedRidesList = () => {
     return () => {
       socket.disconnect()
     }
-  }, [convertRidesToAddresses])
+  }, [convertRidesToAddresses, BACKEND])
 
   // Convert initial rides to addresses on mount / when acceptedRides changes
   useEffect(() => {
@@ -374,57 +374,12 @@ const AcceptedRidesList = () => {
   // Note: Public profile view is handled by dedicated route /captain/:captainId/profile
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '20px'
-    }}>
-      <div style={{
-        maxWidth: '800px',
-        margin: '0 auto',
-        background: 'white',
-        borderRadius: '12px',
-        padding: '24px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-      }}>
+    <div className="fade-in" style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '20px' }}>
+      <div className="container panel">
         {/* Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '24px',
-          borderBottom: '2px solid #e2e8f0',
-          paddingBottom: '16px'
-        }}>
-          <h1 style={{
-            margin: 0,
-            fontSize: '24px',
-            fontWeight: '700',
-            color: '#111827',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            📋 Accepted Rides
-          </h1>
-          <button
-            onClick={goBackToCaptainLive}
-            style={{
-              padding: '8px 16px',
-              background: '#6b7280',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            ← Back to Live
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>📋 Accepted Rides</h1>
+          <button onClick={goBackToCaptainLive} className="btn btn-anim" style={{ padding: '8px 16px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>← Back to Live</button>
         </div>
 
         {/* Loading State */}
@@ -454,6 +409,7 @@ const AcceptedRidesList = () => {
           <div>Rides with Addresses Count: {ridesWithAddresses.length}</div>
           <div>Loading: {loading ? 'true' : 'false'}</div>
           <div>Socket Connected: {loading ? 'Connecting...' : 'Connected'}</div>
+          <div>User Locations: {Object.keys(userLocations || {}).length}</div>
           <div>LocalStorage Key: captain_acceptedRides</div>
           <button 
             onClick={async () => {
@@ -527,21 +483,10 @@ const AcceptedRidesList = () => {
               {ridesWithAddresses.map((ride, index) => (
                 <div
                   key={index}
+                  className="ride-card card-anim"
                   style={{
                     background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    transition: 'all 0.2s ease',
-                    cursor: 'pointer'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
-                    e.target.style.transform = 'translateY(-2px)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.boxShadow = 'none'
-                    e.target.style.transform = 'translateY(0)'
+                    padding: '16px'
                   }}
                 >
                   {/* Ride Header */}
@@ -600,7 +545,7 @@ const AcceptedRidesList = () => {
                   {/* Ride Details */}
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
                     gap: '16px',
                     marginBottom: '16px'
                   }}>
@@ -676,7 +621,7 @@ const AcceptedRidesList = () => {
                   {/* Fare & Distance Info */}
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr 1fr 1fr',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
                     gap: '12px',
                     marginBottom: '16px'
                   }}>
@@ -723,7 +668,8 @@ const AcceptedRidesList = () => {
                   <div style={{
                     display: 'flex',
                     gap: '12px',
-                    marginBottom: '12px'
+                    marginBottom: '12px',
+                    flexWrap: 'wrap'
                   }}>
                     <button
                       onClick={async () => {
@@ -847,6 +793,7 @@ const AcceptedRidesList = () => {
                           alert('❌ Error occurred while completing ride. Please try again.')
                         }
                       }}  
+                      className="btn btn-anim"
                       style={{
                         flex: 1,
                         padding: '10px 16px',
@@ -856,7 +803,6 @@ const AcceptedRidesList = () => {
                         borderRadius: '6px',
                         fontSize: '14px',
                         fontWeight: '600',
-                        cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -871,19 +817,19 @@ const AcceptedRidesList = () => {
                         // Navigate to live tracking for this ride
                         window.location.href = `/captain/live?rideId=${ride.rideId}`
                       }}
+                      className="btn btn-anim"
                       style={{
-                        padding: '10px 16px',
-                        background: '#3b82f6',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
+                          padding: '10px 16px',
+                          background: '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
                     >
                       📍 Track
                     </button>
@@ -891,6 +837,7 @@ const AcceptedRidesList = () => {
                     {/* Navigate to public captain profile view */}
                     <Link to={`/captain/${ride.captainId}/profile`} style={{ textDecoration: 'none', flex: 1 }}>
                       <button
+                        className="btn btn-anim"
                         style={{
                           width: '100%',
                           padding: '10px 16px',
@@ -900,7 +847,6 @@ const AcceptedRidesList = () => {
                           borderRadius: '6px',
                           fontSize: '14px',
                           fontWeight: '600',
-                          cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px'

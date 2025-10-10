@@ -89,9 +89,7 @@ const UserProfile = () => {
     }))
   }
 
-  const goBack = () => {
-    navigate('/user/home')
-  }
+  // ...existing code...
 
   if (loading) {
     return (
@@ -109,35 +107,34 @@ const UserProfile = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      
-      <div style={{
-        minHeight: 'calc(100vh - 64px)',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '20px'
+      <div style={{ 
+        minHeight: 'calc(100vh - 64px)', 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+        padding: 'clamp(12px, 3vw, 20px)' 
       }}>
-      <div style={{
-        maxWidth: '600px',
-        margin: '0 auto',
-        background: 'white',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
-      }}>
+        <div className="container panel" style={{ 
+          padding: 0, 
+          overflow: 'hidden',
+          maxWidth: '100%',
+          margin: '0 auto'
+        }}>
         {/* Header */}
         <div style={{
           background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-          padding: '24px',
+          padding: 'clamp(16px, 4vw, 24px)',
           color: 'white'
         }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '16px'
+            marginBottom: 'clamp(12px, 3vw, 16px)',
+            flexWrap: 'wrap',
+            gap: 'clamp(8px, 2vw, 12px)'
           }}>
             <h1 style={{
               margin: 0,
-              fontSize: '24px',
+              fontSize: 'clamp(20px, 5vw, 24px)',
               fontWeight: '700'
             }}>
               👤 My Profile
@@ -149,14 +146,15 @@ const UserProfile = () => {
                 background: isEditing ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.2)',
                 border: 'none',
                 color: 'white',
-                padding: '8px 16px',
+                padding: 'clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px)',
                 borderRadius: '8px',
-                fontSize: '14px',
+                fontSize: 'clamp(12px, 2.5vw, 14px)',
                 fontWeight: '600',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px'
+                gap: 'clamp(2px, 0.5vw, 4px)',
+                flex: '0 0 auto'
               }}
             >
               {isEditing ? '✕ Cancel' : '✏️ Edit'}
@@ -167,31 +165,33 @@ const UserProfile = () => {
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '16px'
+            gap: 'clamp(12px, 3vw, 16px)',
+            flexWrap: 'wrap'
           }}>
             <div style={{
-              width: '80px',
-              height: '80px',
+              width: 'clamp(60px, 12vw, 80px)',
+              height: 'clamp(60px, 12vw, 80px)',
               background: 'rgba(255,255,255,0.2)',
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '32px'
+              fontSize: 'clamp(24px, 6vw, 32px)',
+              flex: '0 0 auto'
             }}>
               👤
             </div>
-            <div>
+            <div style={{ flex: '1 1 auto', minWidth: '120px' }}>
               <h2 style={{
-                margin: '0 0 4px 0',
-                fontSize: '20px',
+                margin: '0 0 clamp(2px, 0.5vw, 4px) 0',
+                fontSize: 'clamp(16px, 4vw, 20px)',
                 fontWeight: '600'
               }}>
                 {userInfo?.name}
               </h2>
               <p style={{
                 margin: 0,
-                fontSize: '14px',
+                fontSize: 'clamp(12px, 2.5vw, 14px)',
                 opacity: 0.9
               }}>
                 Rider Member
@@ -201,11 +201,11 @@ const UserProfile = () => {
         </div>
 
         {/* Profile Details */}
-        <div style={{ padding: '32px' }}>
+  <div style={{ padding: 'clamp(16px, 4vw, 20px)' }}>
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '24px'
+            gap: 'clamp(16px, 4vw, 24px)'
           }}>
             {/* Email */}
             <div style={{
@@ -497,9 +497,9 @@ const UserProfile = () => {
             {/* Account Stats */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '16px',
-              marginTop: '8px'
+              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+              gap: 'clamp(12px, 3vw, 16px)',
+              marginTop: 'clamp(6px, 1.5vw, 8px)'
             }}>
               <div style={{
                 padding: '16px',
@@ -556,8 +556,9 @@ const UserProfile = () => {
           {/* Action Buttons */}
           <div style={{
             display: 'flex',
-            gap: '12px',
-            marginTop: '24px'
+            gap: 'clamp(8px, 2vw, 12px)',
+            marginTop: 'clamp(16px, 4vw, 24px)',
+            flexWrap: 'wrap'
           }}>
             {isEditing ? (
               <>

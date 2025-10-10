@@ -29,7 +29,7 @@ export default function VoiceSearchDemo() {
     <div style={{ 
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
       minHeight: '100vh',
-      padding: '20px'
+      padding: 'clamp(12px, 3vw, 20px)'
     }}>
       <div style={{
         maxWidth: '1200px',
@@ -38,14 +38,14 @@ export default function VoiceSearchDemo() {
         {/* Header */}
         <div style={{
           background: 'white',
-          borderRadius: '20px',
-          padding: '30px',
-          marginBottom: '30px',
+          borderRadius: 'clamp(12px, 3vw, 20px)',
+          padding: 'clamp(20px, 5vw, 30px)',
+          marginBottom: 'clamp(20px, 5vw, 30px)',
           textAlign: 'center',
           boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
         }}>
           <h1 style={{
-            fontSize: '48px',
+            fontSize: 'clamp(32px, 8vw, 48px)',
             fontWeight: '800',
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             WebkitBackgroundClip: 'text',

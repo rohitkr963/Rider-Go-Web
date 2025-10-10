@@ -1017,6 +1017,36 @@ export default function CaptainLive() {
     }
   }, [])
 
+  // Inject responsive styles for CaptainLive
+if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.head && !document.getElementById('captain-live-responsive-styles')) {
+  const s = document.createElement('style')
+  s.id = 'captain-live-responsive-styles'
+  s.innerHTML = `
+    .captainlive-header, .captainlive-controls { display: flex; flex-wrap: wrap; gap: 12px; }
+    .captainlive-header { flex-direction: row; align-items: center; justify-content: space-between; padding: 16px 24px; }
+    .captainlive-controls { flex-direction: row; align-items: center; gap: 8px; }
+    .captainlive-searchbar { display: flex; gap: 12px; flex-wrap: wrap; }
+    .captainlive-searchbar > div { flex: 1 1 220px; min-width: 0; }
+    .captainlive-modal, .captainlive-booking-panel { max-width: 400px; width: 90vw; }
+    .captainlive-status { min-width: 180px; }
+    @media (max-width: 900px) {
+      .captainlive-header { flex-direction: column; align-items: stretch; padding: 12px 8px; gap: 10px; }
+      .captainlive-controls { flex-direction: column; align-items: stretch; gap: 8px; }
+      .captainlive-searchbar { flex-direction: column; gap: 8px; }
+    }
+    @media (max-width: 600px) {
+      .captainlive-header { padding: 8px 2vw; }
+      .captainlive-controls { gap: 6px; }
+      .captainlive-searchbar { gap: 6px; }
+      .captainlive-modal, .captainlive-booking-panel { max-width: 98vw; padding: 10px !important; }
+      .captainlive-status { min-width: 120px; font-size: 13px; padding: 8px 6px; }
+      .captainlive-header h1 { font-size: 18px !important; }
+      .captainlive-header p { font-size: 13px !important; }
+    }
+  `
+  document.head.appendChild(s)
+}
+
   if (!rideData) {
     return (
       <div style={{ 
@@ -1232,14 +1262,12 @@ export default function CaptainLive() {
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <div style={{
+      <div className="captainlive-header" style={{
         background: '#fff',
         borderBottom: '1px solid #e5e7eb',
-        padding: '16px 24px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        flex: '0 0 auto',
+        zIndex: 2
       }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>Ride in Progress</h1>
@@ -1247,7 +1275,7 @@ export default function CaptainLive() {
             {rideData.pickup.name} → {rideData.destination.name}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div className="captainlive-controls">
           {/* Pickup Locations Info */}
           {userPickupLocations.length > 0 && (
             <button
@@ -1436,11 +1464,11 @@ export default function CaptainLive() {
         </div>
       </div>
 
-      {/* Map Container */}
-      <div style={{ flex: 1, position: 'relative' }}>
+      {/* Map Container - maximize map height */}
+      <div style={{ flex: 1, minHeight: 0, position: 'relative', zIndex: 1 }}>
         {/* Search like Google Maps - only in planning state */}
         {rideStatus === 'planning' && (
-          <div style={{ position: 'absolute', top: '16px', left: '16px', right: '16px', zIndex: 1000, display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+          <div className="captainlive-searchbar" style={{ position: 'absolute', top: '16px', left: '16px', right: '16px', zIndex: 1000, alignItems: 'flex-start' }}>
             <div style={{ flex: 1, maxWidth: '420px' }}>
               <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.12)', padding: '8px 12px' }}>
                 <input
@@ -1486,7 +1514,7 @@ export default function CaptainLive() {
         <MapContainer
           center={mapCenter}
           zoom={mapZoom}
-          style={{ height: '100%', width: '100%' }}
+          style={{ height: '100%', width: '100%', minHeight: 'calc(100vh - 80px)', maxHeight: '100vh' }}
         >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -1608,7 +1636,7 @@ export default function CaptainLive() {
         
         {/* Booking Notifications Panel */}
         {showBookingPanel && bookingNotifications.length > 0 && (
-          <div style={{
+          <div className="captainlive-booking-panel" style={{
             position: 'absolute',
             top: '20px',
             right: '20px',
@@ -1727,7 +1755,7 @@ export default function CaptainLive() {
             justifyContent: 'center',
             zIndex: 2000
           }}>
-            <div style={{
+            <div className="captainlive-modal" style={{
               background: 'white',
               padding: '24px',
               borderRadius: '12px',
@@ -1843,7 +1871,7 @@ export default function CaptainLive() {
         )}
 
         {/* Status Overlay */}
-        <div style={{
+        <div className="captainlive-status" style={{
           position: 'absolute',
           top: '20px',
           left: '20px',

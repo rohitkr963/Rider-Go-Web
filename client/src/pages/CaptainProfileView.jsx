@@ -136,21 +136,10 @@ export default function CaptainProfileView() {
   }
 
   return (
-    <div style={{ 
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-      minHeight: '100vh',
-      padding: '20px'
-    }}>
-      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+    <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', minHeight: '100vh', padding: '20px' }}>
+      <div className="container" style={{ maxWidth: 1000 }}>
         {/* Header */}
-        <div style={{
-          background: 'rgba(255,255,255,0.1)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: '20px',
-          padding: '24px',
-          marginBottom: '24px',
-          border: '1px solid rgba(255,255,255,0.2)'
-        }}>
+          <div className="panel" style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', borderRadius: '20px', padding: '24px', marginBottom: '24px', border: '1px solid rgba(255,255,255,0.2)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h1 style={{ 
               fontSize: '32px', 
@@ -207,14 +196,7 @@ export default function CaptainProfileView() {
 
         {/* Loading State */}
         {loading && (
-          <div style={{
-            background: 'rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: '20px',
-            padding: '60px',
-            textAlign: 'center',
-            border: '1px solid rgba(255,255,255,0.2)'
-          }}>
+          <div className="panel" style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', borderRadius: '20px', padding: '40px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.2)' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
             <div style={{ color: 'white', fontSize: '18px', fontWeight: '600' }}>Loading captain profile...</div>
           </div>

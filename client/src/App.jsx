@@ -10,7 +10,9 @@ function App() {
   return (
     <div>
       {showUserNavbar && <UserNavbar />}
-      <Outlet />
+      <main className="container fade-in">
+        <Outlet />
+      </main>
     </div>
   )
 }

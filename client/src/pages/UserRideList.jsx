@@ -773,48 +773,163 @@ export default function UserRideList() {
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
       
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: 24, paddingTop: 40 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, color: '#1f2937' }}>Available Rides on Your Route</h2>
-          <Link to="/user/home" style={{ textDecoration: 'none', color: '#3b82f6', fontWeight: 500 }}>← Change Route</Link>
+      <div className="container" style={{ paddingTop: 'clamp(16px, 4vw, 24px)', paddingBottom: 'clamp(16px, 4vw, 24px)' }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: 'clamp(16px, 4vw, 20px)',
+          flexWrap: 'wrap',
+          gap: 'clamp(8px, 2vw, 12px)'
+        }}>
+          <h2 style={{ 
+            margin: 0, 
+            color: '#1f2937',
+            fontSize: 'clamp(20px, 5vw, 24px)',
+            fontWeight: 700
+          }}>Available Rides on Your Route</h2>
+          <Link 
+            to="/user/home" 
+            style={{ 
+              textDecoration: 'none', 
+              color: '#3b82f6', 
+              fontWeight: 500,
+              fontSize: 'clamp(14px, 3vw, 16px)',
+              padding: 'clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px)',
+              borderRadius: '8px',
+              background: 'rgba(59, 130, 246, 0.1)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.background = 'rgba(59, 130, 246, 0.2)'
+              e.target.style.transform = 'translateY(-1px)'
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = 'rgba(59, 130, 246, 0.1)'
+              e.target.style.transform = 'translateY(0)'
+            }}
+          >← Change Route</Link>
         </div>
         
-        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+        <div style={{ 
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: 'clamp(16px, 4vw, 24px)',
+          alignItems: 'flex-start'
+        }}>
           {/* Rides List */}
-          <div style={{ flex: 1, minWidth: 350 }}>
-            <h3 style={{ margin: '0 0 16px 0', color: '#374151' }}>Captain List ({rides.length})</h3>
+          <div className="col" style={{ minWidth: '280px' }}>
+            <h3 style={{ 
+              margin: '0 0 clamp(12px, 3vw, 16px) 0', 
+              color: '#374151',
+              fontSize: 'clamp(18px, 4vw, 20px)',
+              fontWeight: 600
+            }}>Captain List ({rides.length})</h3>
             {loading && (
-              <div style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>
-                <div style={{ fontSize: 18 }}>🔍 Searching for captains...</div>
+              <div style={{ 
+                padding: 'clamp(16px, 4vw, 20px)', 
+                textAlign: 'center', 
+                color: '#6b7280',
+                background: '#fff',
+                borderRadius: '12px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <div style={{ 
+                  fontSize: 'clamp(16px, 4vw, 18px)',
+                  fontWeight: 500
+                }}>🔍 Searching for captains...</div>
               </div>
             )}
             {!loading && rides.length === 0 && (
-              <div style={{ padding: 20, border: '2px dashed #d1d5db', borderRadius: 12, background: '#f9fafb', textAlign: 'center' }}>
-                <div style={{ fontSize: 18, marginBottom: 8 }}>🚗</div>
-                <div style={{ color: '#6b7280' }}>{emptyMsg || 'No rides found yet.'}</div>
+              <div style={{ 
+                padding: 'clamp(20px, 5vw, 24px)', 
+                border: '2px dashed #d1d5db', 
+                borderRadius: 'clamp(8px, 2vw, 12px)', 
+                background: '#f9fafb', 
+                textAlign: 'center' 
+              }}>
+                <div style={{ 
+                  fontSize: 'clamp(24px, 6vw, 32px)', 
+                  marginBottom: 'clamp(8px, 2vw, 12px)' 
+                }}>🚗</div>
+                <div style={{ 
+                  color: '#6b7280',
+                  fontSize: 'clamp(14px, 3vw, 16px)',
+                  lineHeight: 1.5
+                }}>{emptyMsg || 'No rides found yet.'}</div>
               </div>
             )}
             {!loading && rides.length > 0 && (
-              <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gap: 'clamp(8px, 2vw, 12px)' }}>
                 {rides.map((r) => (
-                  <div key={r.id} style={{ 
-                    border: '1px solid #e5e7eb', 
-                    borderRadius: 12, 
-                    padding: 16, 
+                  <div key={r.id} className="ride-card card-anim" style={{ 
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                    padding: 'clamp(12px, 3vw, 16px)',
                     background: '#fff',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                    transition: 'all 0.2s ease'
+                    borderRadius: 'clamp(8px, 2vw, 12px)',
+                    border: '1px solid #e5e7eb'
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontWeight: 600, color: '#1f2937', marginBottom: 4 }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'flex-start',
+                      gap: 'clamp(8px, 2vw, 12px)',
+                      flexWrap: 'wrap'
+                    }}>
+                      <div style={{ flex: 1, minWidth: '200px' }}>
+                        <div style={{ 
+                          fontWeight: 600, 
+                          color: '#1f2937', 
+                          marginBottom: 'clamp(4px, 1vw, 6px)',
+                          fontSize: 'clamp(14px, 3vw, 16px)',
+                          lineHeight: 1.4
+                        }}>
                           🛺 {r.captainName || r.captainEmail}
-                          {r.isDebug && <span style={{ color: '#F59E0B', marginLeft: 8, fontSize: 12 }}>🔧 DEBUG</span>}
-                          {r.isExpanded && <span style={{ color: '#8B5CF6', marginLeft: 8, fontSize: 12 }}>🔍 EXTENDED</span>}
-                          {r.isNearby && <span style={{ color: '#3B82F6', marginLeft: 8, fontSize: 12 }}>📍 NEARBY</span>}
-                          {r.isActive && <span style={{ color: '#10B981', marginLeft: 8, fontSize: 12 }}>✅ ACTIVE</span>}
+                          <div style={{ 
+                            display: 'flex', 
+                            gap: 'clamp(4px, 1vw, 6px)', 
+                            marginTop: 'clamp(2px, 0.5vw, 4px)',
+                            flexWrap: 'wrap'
+                          }}>
+                            {r.isDebug && <span style={{ 
+                              color: '#F59E0B', 
+                              fontSize: 'clamp(10px, 2.5vw, 12px)',
+                              background: 'rgba(245, 158, 11, 0.1)',
+                              padding: 'clamp(2px, 0.5vw, 4px) clamp(4px, 1vw, 6px)',
+                              borderRadius: '4px',
+                              fontWeight: 600
+                            }}>🔧 DEBUG</span>}
+                            {r.isExpanded && <span style={{ 
+                              color: '#8B5CF6', 
+                              fontSize: 'clamp(10px, 2.5vw, 12px)',
+                              background: 'rgba(139, 92, 246, 0.1)',
+                              padding: 'clamp(2px, 0.5vw, 4px) clamp(4px, 1vw, 6px)',
+                              borderRadius: '4px',
+                              fontWeight: 600
+                            }}>🔍 EXTENDED</span>}
+                            {r.isNearby && <span style={{ 
+                              color: '#3B82F6', 
+                              fontSize: 'clamp(10px, 2.5vw, 12px)',
+                              background: 'rgba(59, 130, 246, 0.1)',
+                              padding: 'clamp(2px, 0.5vw, 4px) clamp(4px, 1vw, 6px)',
+                              borderRadius: '4px',
+                              fontWeight: 600
+                            }}>📍 NEARBY</span>}
+                            {r.isActive && <span style={{ 
+                              color: '#10B981', 
+                              fontSize: 'clamp(10px, 2.5vw, 12px)',
+                              background: 'rgba(16, 185, 129, 0.1)',
+                              padding: 'clamp(2px, 0.5vw, 4px) clamp(4px, 1vw, 6px)',
+                              borderRadius: '4px',
+                              fontWeight: 600
+                            }}>✅ ACTIVE</span>}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 14, color: '#6b7280' }}>
+                        <div style={{ 
+                          fontSize: 'clamp(12px, 2.5vw, 14px)', 
+                          color: '#6b7280',
+                          lineHeight: 1.4
+                        }}>
                           {r.lat && r.lng ? (
                             r.isDebug ? '🔧 Debug Captain (Started Ride)' :
                             r.isExpanded ? '🔍 Extended Area Captain' :
@@ -822,32 +937,61 @@ export default function UserRideList() {
                             r.isActive ? '📍 Active on Route' :
                             '📍 Live Location'
                           ) : '📍 Location updating...'}
-                          {r.lastUpdate && (
-                            <span style={{ fontSize: 12, color: '#10b981', marginLeft: 8 }}>
-                              • Live {Math.round((currentTime - r.lastUpdate) / 1000)}s ago
-                            </span>
-                          )}
-                          {r.trail && r.trail.length > 1 && (
-                            <span style={{ fontSize: 12, color: '#8B5CF6', marginLeft: 8 }}>
-                              🛤️ Trail ({r.trail.length} points)
-                            </span>
-                          )}
+                          <div style={{ 
+                            display: 'flex', 
+                            gap: 'clamp(4px, 1vw, 6px)', 
+                            marginTop: 'clamp(2px, 0.5vw, 4px)',
+                            flexWrap: 'wrap'
+                          }}>
+                            {r.lastUpdate && (
+                              <span style={{ 
+                                fontSize: 'clamp(10px, 2.5vw, 12px)', 
+                                color: '#10b981',
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                padding: 'clamp(2px, 0.5vw, 4px) clamp(4px, 1vw, 6px)',
+                                borderRadius: '4px'
+                              }}>
+                                • Live {Math.round((currentTime - r.lastUpdate) / 1000)}s ago
+                              </span>
+                            )}
+                            {r.trail && r.trail.length > 1 && (
+                              <span style={{ 
+                                fontSize: 'clamp(10px, 2.5vw, 12px)', 
+                                color: '#8B5CF6',
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                padding: 'clamp(2px, 0.5vw, 4px) clamp(4px, 1vw, 6px)',
+                                borderRadius: '4px'
+                              }}>
+                                🛤️ Trail ({r.trail.length} points)
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <button 
                         onClick={() => onTrack(r.id)} 
                         style={{ 
-                          padding: '10px 16px', 
-                          borderRadius: 8, 
+                          padding: 'clamp(8px, 2vw, 10px) clamp(12px, 3vw, 16px)', 
+                          borderRadius: 'clamp(6px, 1.5vw, 8px)', 
                           background: '#3b82f6', 
                           color: '#fff', 
                           border: 'none', 
                           cursor: 'pointer',
                           fontWeight: 500,
-                          transition: 'background 0.2s ease'
+                          fontSize: 'clamp(12px, 2.5vw, 14px)',
+                          transition: 'all 0.2s ease',
+                          flex: '0 0 auto',
+                          minWidth: 'auto',
+                          whiteSpace: 'nowrap'
                         }}
-                        onMouseOver={(e) => e.target.style.background = '#2563eb'}
-                        onMouseOut={(e) => e.target.style.background = '#3b82f6'}
+                        onMouseOver={(e) => {
+                          e.target.style.background = '#2563eb'
+                          e.target.style.transform = 'translateY(-1px)'
+                        }}
+                        onMouseOut={(e) => {
+                          e.target.style.background = '#3b82f6'
+                          e.target.style.transform = 'translateY(0)'
+                        }}
                       >
                         Track Ride
                       </button>
@@ -859,38 +1003,66 @@ export default function UserRideList() {
           </div>
           
           {/* Map */}
-          <div style={{ flex: 1, minWidth: 400 }}>
-            <h3 style={{ margin: '0 0 16px 0', color: '#374151' }}>Live Captain Locations</h3>
-            <div style={{ 
+          <div className="col" style={{ minWidth: '320px' }}>
+            <h3 style={{ 
+              margin: '0 0 clamp(12px, 3vw, 16px) 0', 
+              color: '#374151',
+              fontSize: 'clamp(18px, 4vw, 20px)',
+              fontWeight: 600
+            }}>Live Captain Locations</h3>
+            <div className="map-container" style={{ 
+              borderRadius: 'clamp(8px, 2vw, 12px)', 
+              overflow: 'hidden', 
               border: '1px solid #e5e7eb', 
-              borderRadius: 12, 
-              overflow: 'hidden',
-              background: '#fff',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+              boxShadow: '0 4px 12px rgba(0,0,0,0.06)' 
             }}>
-              <div 
-                ref={mapRef} 
-                style={{ 
-                  height: 500, 
-                  width: '100%',
-                  background: '#f3f4f6'
-                }}
-              />
-              <div style={{ padding: 12, background: '#f9fafb', borderTop: '1px solid #e5e7eb' }}>
-                <div style={{ fontSize: 12, color: '#6b7280', textAlign: 'center' }}>
-                  <div style={{ marginBottom: 4 }}>
+              <div ref={mapRef} style={{ 
+                height: 'clamp(300px, 50vh, 60vh)', 
+                width: '100%', 
+                background: '#f3f4f6',
+                minHeight: '300px'
+              }} />
+              <div style={{ 
+                padding: 'clamp(8px, 2vw, 12px)', 
+                background: '#f9fafb', 
+                borderTop: '1px solid #e5e7eb' 
+              }}>
+                <div style={{ 
+                  fontSize: 'clamp(10px, 2.5vw, 12px)', 
+                  color: '#6b7280', 
+                  textAlign: 'center',
+                  lineHeight: 1.4
+                }}>
+                  <div style={{ 
+                    marginBottom: 'clamp(4px, 1vw, 6px)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: 'clamp(4px, 1vw, 6px)',
+                    flexWrap: 'wrap'
+                  }}>
                     <span style={{ color: '#10B981' }}>🟢 Live</span> • 
-                    <span style={{ color: '#EF4444', marginLeft: 4 }}>🔴 Starting</span> • 
-                    <span style={{ color: '#3B82F6', marginLeft: 4 }}>🔵 Nearby</span> • 
-                    <span style={{ color: '#8B5CF6', marginLeft: 4 }}>🟣 Extended</span>
+                    <span style={{ color: '#EF4444' }}>🔴 Starting</span> • 
+                    <span style={{ color: '#3B82F6' }}>🔵 Nearby</span> • 
+                    <span style={{ color: '#8B5CF6' }}>🟣 Extended</span>
                   </div>
-                  <div style={{ marginBottom: 4 }}>
+                  <div style={{ 
+                    marginBottom: 'clamp(4px, 1vw, 6px)',
+                    fontSize: 'clamp(9px, 2vw, 11px)'
+                  }}>
                     📍 Pickup • 🎯 Destination • 🛣️ Route Connections
                   </div>
-                  <div style={{ marginBottom: 4 }}>
+                  <div style={{ 
+                    marginBottom: 'clamp(4px, 1vw, 6px)',
+                    fontSize: 'clamp(9px, 2vw, 11px)'
+                  }}>
                     🏁 Starting Autos • 🚗 Available Autos • 🛤️ Captain Trails
                   </div>
-                  <div>🛺 Total Auto Rickshaws: {rides.filter(r => r.lat && r.lng).length}</div>
+                  <div style={{ 
+                    fontWeight: 600,
+                    fontSize: 'clamp(10px, 2.5vw, 12px)'
+                  }}>
+                    🛺 Total Auto Rickshaws: {rides.filter(r => r.lat && r.lng).length}
+                  </div>
                 </div>
               </div>
             </div>

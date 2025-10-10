@@ -56,23 +56,109 @@ export default function UserSignup() {
   }
 
   return (
-    <Box display="flex" justifyContent="center" alignItems="center" sx={{ minHeight: '70vh' }}>
-      <Card sx={{ width: 420 }}>
-        <CardContent>
-          <Typography variant="h5" gutterBottom>User Signup</Typography>
+    <Box 
+      display="flex" 
+      justifyContent="center" 
+      alignItems="center" 
+      sx={{ 
+        minHeight: '70vh',
+        padding: 'clamp(16px, 4vw, 24px)'
+      }}
+    >
+      <Card sx={{ 
+        width: '100%',
+        maxWidth: 420,
+        margin: '0 auto'
+      }}>
+        <CardContent sx={{ padding: 'clamp(16px, 4vw, 24px)' }}>
+          <Typography 
+            variant="h5" 
+            gutterBottom
+            sx={{ 
+              fontSize: 'clamp(20px, 5vw, 24px)',
+              textAlign: 'center',
+              marginBottom: 'clamp(16px, 4vw, 24px)'
+            }}
+          >
+            User Signup
+          </Typography>
           <Box component="form" onSubmit={onSubmit} noValidate>
             <Stack spacing={2}>
-              <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required fullWidth />
-              <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required fullWidth />
-              <TextField label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required fullWidth />
-              <Button type="submit" variant="contained" disabled={loading}>Create account</Button>
+              <TextField 
+                label="Name" 
+                value={name} 
+                onChange={(e) => setName(e.target.value)} 
+                required 
+                fullWidth 
+                sx={{
+                  '& .MuiInputBase-input': {
+                    fontSize: 'clamp(14px, 3vw, 16px)'
+                  }
+                }}
+              />
+              <TextField 
+                label="Email" 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+                fullWidth 
+                sx={{
+                  '& .MuiInputBase-input': {
+                    fontSize: 'clamp(14px, 3vw, 16px)'
+                  }
+                }}
+              />
+              <TextField 
+                label="Password" 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+                fullWidth 
+                sx={{
+                  '& .MuiInputBase-input': {
+                    fontSize: 'clamp(14px, 3vw, 16px)'
+                  }
+                }}
+              />
+              <Button 
+                type="submit" 
+                variant="contained" 
+                disabled={loading}
+                sx={{
+                  padding: 'clamp(10px, 2.5vw, 12px)',
+                  fontSize: 'clamp(14px, 3vw, 16px)',
+                  fontWeight: 600
+                }}
+              >
+                {loading ? 'Creating account...' : 'Create account'}
+              </Button>
             </Stack>
           </Box>
-          <Box mt={2}>
-            <Link to="/user/login">Already have an account? Login</Link>
+          <Box mt={2} sx={{ textAlign: 'center' }}>
+            <Link 
+              to="/user/login"
+              style={{ 
+                fontSize: 'clamp(12px, 2.5vw, 14px)',
+                color: '#3b82f6',
+                textDecoration: 'none'
+              }}
+            >
+              Already have an account? Login
+            </Link>
           </Box>
-          <Box mt={1}>
-            <Link to="/captain/login">Login as a captain</Link>
+          <Box mt={1} sx={{ textAlign: 'center' }}>
+            <Link 
+              to="/captain/login"
+              style={{ 
+                fontSize: 'clamp(12px, 2.5vw, 14px)',
+                color: '#6b7280',
+                textDecoration: 'none'
+              }}
+            >
+              Login as a captain
+            </Link>
           </Box>
         </CardContent>
       </Card>

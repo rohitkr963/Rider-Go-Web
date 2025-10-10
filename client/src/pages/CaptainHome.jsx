@@ -1,10 +1,13 @@
 import React from 'react'
 import { io } from 'socket.io-client'
-import { useNavigate } from 'react-router-dom'
-import { Link } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
-const container = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' }
-const section = { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 16 }
+const section = { 
+  background: '#fff', 
+  border: '1px solid #e5e7eb', 
+  borderRadius: 12, 
+  padding: 'clamp(12px, 3vw, 16px)' 
+}
 
 function osmEmbedSrc(lat, lon) {
   const delta = 0.02
@@ -103,7 +106,7 @@ export default function CaptainHome() {
     send()
     const interval = setInterval(send, 10000)
     return () => clearInterval(interval)
-  }, [online, lat, lon])
+  }, [online, lat, lon, BACKEND])
 
   // autocomplete helpers (Nominatim)
   const searchPlaces = async (query) => {
@@ -273,16 +276,18 @@ export default function CaptainHome() {
     <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
       {/* Header / Navbar */}
       <div style={{ borderBottom: '1px solid #e5e7eb' }}>
-        <div style={{ ...container, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-            <div style={{ fontWeight: 800, fontSize: 22 }}>RiderGo</div>
-            <Link to="/captain/home" style={{ textDecoration: 'none', color: '#111', fontWeight: 600 }}>Home</Link>
-            <Link to="/captain/rides" style={{ textDecoration: 'none', color: '#111', fontWeight: 600 }}>My Rides</Link>
-            <Link to="/captain/ride-history" style={{ textDecoration: 'none', color: '#111', fontWeight: 600 }}>Ride History</Link>
-            <Link to="/captain/earnings" style={{ textDecoration: 'none', color: '#111', fontWeight: 600 }}>Earnings</Link>
-            <Link style={{ textDecoration: 'none', color: '#111', fontWeight: 600 }}>Support</Link>
+        <div className="container" style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ fontWeight: 800, fontSize: 20 }}>RiderGo</div>
+            <nav className="nav-links" style={{ alignItems: 'center' }}>
+              <Link to="/captain/home" className="nav-link">Home</Link>
+              <Link to="/captain/rides" className="nav-link">My Rides</Link>
+              <Link to="/captain/ride-history" className="nav-link">Ride History</Link>
+              <Link to="/captain/earnings" className="nav-link">Earnings</Link>
+              <Link className="nav-link">Support</Link>
+            </nav>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="top-right">
             <Link to="/captain/profile" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: '#111' }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e5e7eb' }} />
               <span style={{ fontWeight: 600 }}>Profile ▾</span>
@@ -291,11 +296,11 @@ export default function CaptainHome() {
         </div>
       </div>
 
-      <div style={{ ...container, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, paddingTop: 16, paddingBottom: 24 }}>
+  <div className="container two-col-grid" style={{ paddingTop: 'clamp(8px, 2vw, 12px)', paddingBottom: 'clamp(16px, 4vw, 24px)' }}>
         {/* Left column: Status + Map + Active Ride */}
-        <div style={{ display: 'grid', gap: 16 }}>
+  <div style={{ display: 'grid', gap: 'clamp(12px, 3vw, 16px)' }}>
           {/* Status control */}
-          <div style={section}>
+          <div className="ride-card card-anim" style={section}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 18 }}>Captain status</div>
@@ -329,11 +334,13 @@ export default function CaptainHome() {
           </div>
 
           {/* Map */}
-          <div style={{ ...section, padding: 0, overflow: 'hidden' }}>
-            <iframe title="map" width="100%" height="420" frameBorder="0" scrolling="no" src={osmEmbedSrc(lat, lon)} />
-            <div style={{ padding: 12, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between' }}>
-              <div><strong>Location:</strong> {lat.toFixed(5)}, {lon.toFixed(5)}</div>
-              <button onClick={() => navigator.geolocation?.getCurrentPosition?.((p) => { setLat(p.coords.latitude); setLon(p.coords.longitude) })} style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontWeight: 600 }}>Center on me</button>
+          <div className="ride-card card-anim" style={{ ...section, padding: 0, overflow: 'hidden' }}>
+            <div className="map-container" style={{ height: 340 }}>
+              <iframe title="map" width="100%" height="100%" frameBorder="0" scrolling="no" src={osmEmbedSrc(lat, lon)} />
+            </div>
+            <div style={{ padding: 12, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 auto' }}><strong>Location:</strong> {lat.toFixed(5)}, {lon.toFixed(5)}</div>
+              <button onClick={() => navigator.geolocation?.getCurrentPosition?.((p) => { setLat(p.coords.latitude); setLon(p.coords.longitude) })} className="btn btn-anim" style={{ padding: '8px 12px' }}>Center on me</button>
             </div>
           </div>
 
@@ -369,11 +376,11 @@ export default function CaptainHome() {
               </div>
               
               <div style={{ 
-                background: 'rgba(255, 255, 255, 0.8)', 
-                padding: '12px', 
-                borderRadius: '8px', 
-                marginBottom: '12px' 
-              }}>
+                  background: 'rgba(255, 255, 255, 0.8)', 
+                  padding: '12px', 
+                  borderRadius: '8px', 
+                  marginBottom: '12px' 
+                }}>
                 <div style={{ fontSize: '14px', color: '#92400e', marginBottom: '8px' }}>
                   <strong>Ride ID:</strong> {continueRideData.rideId}
                 </div>
@@ -385,51 +392,10 @@ export default function CaptainHome() {
                 </div>
               </div>
               
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => {
-                    // Use React Router navigate to avoid page refresh
-                    navigate(`/captain/live?rideId=${continueRideData.rideId}`)
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '12px 16px',
-                    background: '#16a34a',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  🚀 Continue Ride
-                </button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button onClick={() => { navigate(`/captain/live?rideId=${continueRideData.rideId}`) }} className="btn btn-anim" style={{ flex: '1 1 auto', padding: '12px 16px', background: '#16a34a', color: 'white', border: 'none' }}>🚀 Continue Ride</button>
                 
-                <button
-                  onClick={() => {
-                    if (confirm('Are you sure you want to cancel this active ride?')) {
-                      localStorage.removeItem('captain_activeRide')
-                      setContinueRideData(null)
-                    }
-                  }}
-                  style={{
-                    padding: '12px 16px',
-                    background: '#dc2626',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ❌
-                </button>
+                <button onClick={() => { if (confirm('Are you sure you want to cancel this active ride?')) { localStorage.removeItem('captain_activeRide'); setContinueRideData(null) } }} className="btn btn-anim" style={{ padding: '12px 16px', background: '#dc2626', color: 'white', border: 'none' }}>❌</button>
               </div>
             </div>
           )}
@@ -455,7 +421,7 @@ export default function CaptainHome() {
         </div>
 
         {/* Right column: Plan route + Requests + Stats */}
-        <div style={{ display: 'grid', gap: 16 }}>
+        <div style={{ display: 'grid', gap: 'clamp(12px, 3vw, 16px)' }}>
           {/* Plan a route */}
           <div style={section}>
             <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8 }}>Plan a route</div>

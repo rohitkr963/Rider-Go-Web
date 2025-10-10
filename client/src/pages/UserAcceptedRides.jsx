@@ -256,48 +256,20 @@ export default function UserAcceptedRides() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      
-      <div style={{ 
-        minHeight: 'calc(100vh - 64px)', 
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '20px'
-      }}>
-        {/* Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '24px'
-        }}>
-          <div>
-            <h1 style={{ 
-              color: 'white', 
-              fontSize: '28px', 
-              fontWeight: '700',
-              margin: 0
-            }}>
-              🎫 My Booked Rides
-            </h1>
-            <div style={{ 
-              color: 'rgba(255,255,255,0.8)', 
-              fontSize: '12px', 
-              marginTop: '4px' 
-            }}>
-              User ID: {getUserId()}
+      <div style={{ minHeight: 'calc(100vh - 64px)', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '20px' }}>
+        <div className="container panel">
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div>
+              <h1 style={{ color: 'white', fontSize: '24px', fontWeight: '700', margin: 0 }}>🎫 My Booked Rides</h1>
+              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', marginTop: '4px' }}>User ID: {getUserId()}</div>
             </div>
           </div>
-        </div>
 
-      {/* Rides List */}
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        {acceptedRides.length === 0 ? (
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '40px',
-            textAlign: 'center',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-          }}>
+          {/* Rides List */}
+          <div style={{ width: '100%' }}>
+            {acceptedRides.length === 0 ? (
+              <div className="ride-card card-anim" style={{ textAlign: 'center', padding: '40px' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚗</div>
             <h2 style={{ color: '#374151', marginBottom: '8px' }}>No Booked Rides</h2>
             <p style={{ color: '#6b7280', margin: 0 }}>
@@ -435,10 +407,11 @@ export default function UserAcceptedRides() {
           </div>
         )}
       </div>
-
-        {/* Captain Profile Modal */}
-        {/* Profile modal removed in favor of dedicated profile page */}
+        </div>
       </div>
+
+      {/* Captain Profile Modal */}
+      {/* Profile modal removed in favor of dedicated profile page */}
     </div>
   )
 }

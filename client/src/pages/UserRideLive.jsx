@@ -761,32 +761,57 @@ export default function UserRideLive() {
 
   return (
     <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+      <div className="container" style={{ padding: '16px' }}>
         <div style={{ width: '100%' }}>
-          <h2 style={{ fontSize: 24, fontWeight: 800 }}>Ride tracking</h2>
-          <div style={{ marginTop: 8, marginBottom: 12 }}>            
+          <h2 style={{ fontSize: 'clamp(20px, 4vw, 24px)', fontWeight: 800, marginBottom: '16px' }}>Ride tracking</h2>
+          <div style={{ marginBottom: '16px' }}>            
             {(etaKm != null || etaMin != null) && (
-              <div style={{ fontSize: 14, color: '#111' }}>
+              <div style={{ fontSize: 'clamp(12px, 3vw, 14px)', color: '#111', marginBottom: '12px' }}>
                 {etaKm != null ? `${etaKm.toFixed(1)} km` : '--'} • {etaMin != null ? `${etaMin} min` : '--'}
               </div>
             )}
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '10px' }}>
+            <div style={{ 
+              display: 'flex', 
+              gap: '8px', 
+              alignItems: 'center', 
+              flexWrap: 'wrap'
+            }}>
               {!userStarted && (
-                <button onClick={onStartClick} style={{ background: '#2563eb', color: 'white', padding: '10px 16px', borderRadius: 8, border: 'none', fontWeight: 700, cursor: 'pointer' }}>Start tracking</button>
+                <button 
+                  onClick={onStartClick} 
+                  style={{ 
+                    background: '#2563eb', 
+                    color: 'white', 
+                    padding: 'clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px)', 
+                    borderRadius: 8, 
+                    border: 'none', 
+                    fontWeight: 700, 
+                    cursor: 'pointer',
+                    fontSize: 'clamp(12px, 3vw, 14px)',
+                    flex: '1 1 auto',
+                    minWidth: '120px'
+                  }}
+                >
+                  Start tracking
+                </button>
               )}
               <button 
                 onClick={() => setShowStatusPanel(!showStatusPanel)}
                 style={{ 
                   background: showStatusPanel ? '#16a34a' : '#f3f4f6', 
                   color: showStatusPanel ? 'white' : '#374151',
-                  padding: '10px 16px', 
+                  padding: 'clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px)', 
                   borderRadius: 8, 
                   border: '1px solid #d1d5db', 
                   fontWeight: 700, 
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px'
+                  gap: '6px',
+                  fontSize: 'clamp(12px, 3vw, 14px)',
+                  flex: '1 1 auto',
+                  minWidth: '120px',
+                  justifyContent: 'center'
                 }}
               >
                 🚖 View Status
@@ -800,10 +825,11 @@ export default function UserRideLive() {
               background: 'white',
               border: '1px solid #e5e7eb',
               borderRadius: '12px',
-              padding: '20px',
+              padding: 'clamp(16px, 4vw, 20px)',
               marginBottom: '16px',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              maxWidth: '400px'
+              maxWidth: '100%',
+              width: '100%'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                 <div style={{ fontSize: '24px' }}>🚖</div>
@@ -813,18 +839,23 @@ export default function UserRideLive() {
                 </div>
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', 
+                gap: 'clamp(12px, 3vw, 16px)',
+                marginBottom: '16px'
+              }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>{seats}</div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seats</div>
+                  <div style={{ fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 'bold', color: '#1f2937' }}>{seats}</div>
+                  <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seats</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ef4444' }}>{occupied}</div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Occupied</div>
+                  <div style={{ fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 'bold', color: '#ef4444' }}>{occupied}</div>
+                  <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Occupied</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#16a34a' }}>{availableCount}</div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Available</div>
+                  <div style={{ fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 'bold', color: '#16a34a' }}>{availableCount}</div>
+                  <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Available</div>
                 </div>
               </div>
 
@@ -1021,7 +1052,17 @@ export default function UserRideLive() {
             </div>
           )}
           
-          <div id="user-live" style={{ width: '75vw', maxWidth: 1100, height: '85vh', border: '1px solid #e5e7eb', borderRadius: 12 }} />
+          <div 
+            className="map-container" 
+            id="user-live" 
+            style={{ 
+              border: '1px solid #e5e7eb', 
+              borderRadius: 12,
+              width: '100%',
+              height: 'clamp(300px, 50vh, 600px)',
+              minHeight: '300px'
+            }} 
+          />
         </div>
       </div>
     </div>

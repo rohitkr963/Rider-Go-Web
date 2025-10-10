@@ -188,12 +188,8 @@ export default function CaptainProfile() {
   )
 
   return (
-    <div style={{ 
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-      minHeight: '100vh',
-      padding: '20px'
-    }}>
-      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+      <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', minHeight: '100vh', padding: '20px' }}>
+        <div className="container" style={{ maxWidth: '1000px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{
           background: 'rgba(255,255,255,0.1)',
@@ -289,14 +285,7 @@ export default function CaptainProfile() {
 
         {/* Profile Content */}
         {profile && (
-          <div style={{
-            background: 'rgba(255,255,255,0.95)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: '20px',
-            padding: '32px',
-            border: '1px solid rgba(255,255,255,0.2)',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.1)'
-          }}>
+          <div className="panel" style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderRadius: '20px', padding: '24px', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 25px 50px rgba(0,0,0,0.1)' }}>
             {isEditing ? (
               /* Edit Form */
               <div>
@@ -470,14 +459,14 @@ export default function CaptainProfile() {
                   gap: '20px',
                   marginBottom: '32px'
                 }}>
-                  <InfoCard icon="📱" label="Phone" value={profile.contact} />
-                  <InfoCard icon="🚗" label="Vehicle Type" value={profile.vehicleType} color="#3b82f6" />
-                  <InfoCard icon="🔢" label="Vehicle Number" value={profile.vehicleNumber} color="#8b5cf6" />
-                  <InfoCard icon="🏎️" label="Vehicle Model" value={profile.vehicleModel} color="#f59e0b" />
-                  <InfoCard icon="👥" label="Seating Capacity" value={profile.seatingCapacity} color="#10b981" />
-                  <InfoCard icon="🎯" label="Completed Rides" value={profile.ridesCompleted || 0} color="#ef4444" />
-                  <InfoCard icon="⭐" label="Rating" value={`${profile.averageRating || 5.0}/5.0 (${profile.ratingCount || 0} ratings)`} color="#fbbf24" />
-                  <InfoCard icon="💰" label="Total Earnings" value={`₹${profile.earnings || 0}`} color="#059669" />
+                  <InfoCard className="ride-card" icon="📱" label="Phone" value={profile.contact} />
+                  <InfoCard className="ride-card" icon="🚗" label="Vehicle Type" value={profile.vehicleType} color="#3b82f6" />
+                  <InfoCard className="ride-card" icon="🔢" label="Vehicle Number" value={profile.vehicleNumber} color="#8b5cf6" />
+                  <InfoCard className="ride-card" icon="🏎️" label="Vehicle Model" value={profile.vehicleModel} color="#f59e0b" />
+                  <InfoCard className="ride-card" icon="👥" label="Seating Capacity" value={profile.seatingCapacity} color="#10b981" />
+                  <InfoCard className="ride-card" icon="🎯" label="Completed Rides" value={profile.ridesCompleted || 0} color="#ef4444" />
+                  <InfoCard className="ride-card" icon="⭐" label="Rating" value={`${profile.averageRating || 5.0}/5.0 (${profile.ratingCount || 0} ratings)`} color="#fbbf24" />
+                  <InfoCard className="ride-card" icon="💰" label="Total Earnings" value={`₹${profile.earnings || 0}`} color="#059669" />
                 </div>
 
                 {/* Experience Section */}

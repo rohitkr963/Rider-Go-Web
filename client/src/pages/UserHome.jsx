@@ -1,27 +1,114 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import VoiceSearchAdvanced from '../components/VoiceSearchAdvanced'
-import Footer from '../components/Footer'
 
-const container = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' }
+const container = { maxWidth: 1200, margin: '0 auto', padding: '0 clamp(16px, 4vw, 24px)' }
 
 const subnavWrap = { borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }
-const subnav = { ...container, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 24, height: 56, color: '#6b7280' }
+const subnav = { 
+  ...container, 
+  display: 'flex', 
+  alignItems: 'center', 
+  justifyContent: 'flex-end', 
+  gap: 'clamp(12px, 3vw, 24px)', 
+  height: 'clamp(48px, 8vw, 56px)', 
+  color: '#6b7280',
+  fontSize: 'clamp(12px, 2.5vw, 14px)'
+}
 
-const hero = { ...container, display: 'grid', gridTemplateColumns: '1fr', gap: 32, paddingTop: 40, paddingBottom: 60 }
-const heroGridWide = { ...hero, gridTemplateColumns: '1fr 1fr', alignItems: 'center' }
-const title = { fontSize: 56, lineHeight: 1.05, letterSpacing: '-0.02em', marginTop: 8, marginBottom: 16, fontWeight: 800 }
-const promoSmall = { color: '#6b7280', fontSize: 12, marginBottom: 24 }
+const hero = { 
+  ...container, 
+  display: 'grid', 
+  gridTemplateColumns: '1fr', 
+  gap: 'clamp(24px, 6vw, 32px)', 
+  paddingTop: 'clamp(24px, 6vw, 40px)', 
+  paddingBottom: 'clamp(32px, 8vw, 60px)' 
+}
+const heroGridWide = { 
+  ...hero, 
+  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+  alignItems: 'center',
+  display: 'grid'
+}
 
-const inputRow = { display: 'grid', gridTemplateColumns: '32px 1fr 140px', alignItems: 'center', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 6 }
-const input = { border: 'none', outline: 'none', fontSize: 16, padding: '10px 8px', background: '#f9fafb', borderRadius: 8 }
-const inputIcon = { textAlign: 'center', fontSize: 18 }
-const sendBtn = { justifySelf: 'end', background: '#3b82f6', border: 'none', borderRadius: 10, minWidth: 120, height: 40, cursor: 'pointer', color: '#fff', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }
-const actions = { display: 'flex', gap: 12, marginTop: 12 }
-const darkBtn = { padding: '12px 18px', background: '#000', color: '#fff', borderRadius: 10, fontWeight: 700, cursor: 'pointer', border: '1px solid #000' }
+// Mobile-first responsive grid that shows image first on small screens
+const heroGridMobile = {
+  ...hero,
+  gridTemplateColumns: '1fr',
+  alignItems: 'stretch'
+}
+const title = { 
+  fontSize: 'clamp(32px, 8vw, 56px)', 
+  lineHeight: 1.05, 
+  letterSpacing: '-0.02em', 
+  marginTop: 8, 
+  marginBottom: 16, 
+  fontWeight: 800 
+}
+const promoSmall = { color: '#6b7280', fontSize: 'clamp(10px, 2.5vw, 12px)', marginBottom: 24 }
+
+const inputRow = { 
+  display: 'grid', 
+  gridTemplateColumns: 'clamp(28px, 6vw, 32px) 1fr clamp(100px, 20vw, 140px)', 
+  alignItems: 'center', 
+  background: '#fff', 
+  border: '1px solid #e5e7eb', 
+  borderRadius: 12, 
+  padding: 'clamp(4px, 1vw, 6px)',
+  gap: 'clamp(4px, 1vw, 8px)'
+}
+const input = { 
+  border: 'none', 
+  outline: 'none', 
+  fontSize: 'clamp(14px, 3vw, 16px)', 
+  padding: 'clamp(8px, 2vw, 10px) clamp(6px, 1.5vw, 8px)', 
+  background: '#f9fafb', 
+  borderRadius: 8 
+}
+const inputIcon = { textAlign: 'center', fontSize: 'clamp(16px, 3.5vw, 18px)' }
+const sendBtn = { 
+  justifySelf: 'end', 
+  background: '#3b82f6', 
+  border: 'none', 
+  borderRadius: 10, 
+  minWidth: 'clamp(80px, 15vw, 120px)', 
+  height: 'clamp(36px, 7vw, 40px)', 
+  cursor: 'pointer', 
+  color: '#fff', 
+  padding: 'clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 12px)', 
+  display: 'flex', 
+  alignItems: 'center', 
+  justifyContent: 'center', 
+  fontWeight: 700,
+  fontSize: 'clamp(12px, 2.5vw, 14px)'
+}
+const actions = { 
+  display: 'flex', 
+  gap: 'clamp(8px, 2vw, 12px)', 
+  marginTop: 'clamp(8px, 2vw, 12px)',
+  flexWrap: 'wrap'
+}
+const darkBtn = { 
+  padding: 'clamp(10px, 2.5vw, 12px) clamp(14px, 3.5vw, 18px)', 
+  background: '#000', 
+  color: '#fff', 
+  borderRadius: 10, 
+  fontWeight: 700, 
+  cursor: 'pointer', 
+  border: '1px solid #000',
+  fontSize: 'clamp(12px, 2.5vw, 14px)',
+  flex: '1 1 auto',
+  minWidth: '120px'
+}
 // top-level button styles are defined in navbar component; not needed here
 
-const artImg = { width: '100%', height: 520, objectFit: 'cover', borderRadius: 16, display: 'block' }
+const artImg = { 
+  width: '100%', 
+  height: 'clamp(300px, 50vw, 520px)', 
+  objectFit: 'cover', 
+  borderRadius: 16, 
+  display: 'block' 
+}
 
 export default function UserHome() {
   const [pickup, setPickup] = React.useState('')
@@ -190,14 +277,26 @@ export default function UserHome() {
       </div>
 
       {/* Hero */}
-      <div style={heroGridWide}>
+      <div style={heroGridWide} className="hero-mobile-first">
+        {/* Mobile: Image first, then search form */}
+        <aside>
+          <img
+            style={artImg}
+            src="/rider-go.png"
+            alt="RiderGo ride illustration"
+            onError={(e) => {
+              e.currentTarget.src = '/rider-go.png'  
+            }}
+          />
+        </aside>
+
         <section>
-          <div style={{ color: '#111', fontSize: 18, fontWeight: 700, marginTop: 24 }}>Ride</div>
+          <div style={{ color: '#111', fontSize: 'clamp(16px, 4vw, 18px)', fontWeight: 700, marginTop: 'clamp(16px, 4vw, 24px)' }}>Ride</div>
           <h1 style={title}>Request a ride for now</h1>
 
           <div style={promoSmall}>*Valid within 15 days of signup.</div>
 
-          <div style={{ display: 'grid', gap: 12, maxWidth: 520 }}>
+          <div style={{ display: 'grid', gap: 'clamp(8px, 2vw, 12px)', maxWidth: '100%' }}>
             <div style={{ position: 'relative' }}>
               <div style={inputRow}>
                 <span style={inputIcon}>📍</span>
@@ -208,21 +307,24 @@ export default function UserHome() {
                   onChange={handlePickupChange}
                   onFocus={() => pickup && handlePickupChange({ target: { value: pickup } })}
                 />
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 'clamp(4px, 1vw, 8px)', alignItems: 'center', flexWrap: 'wrap' }}>
                   <button 
                     type="button" 
                     style={{
                       background: showPickupVoice ? '#ef4444' : '#16a34a',
                       color: 'white',
                       border: 'none',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)',
                       cursor: 'pointer',
-                      fontSize: '14px',
+                      fontSize: 'clamp(10px, 2.5vw, 12px)',
                       fontWeight: '600',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '4px'
+                      gap: 'clamp(2px, 0.5vw, 4px)',
+                      minWidth: 'auto',
+                      height: 'auto',
+                      whiteSpace: 'nowrap'
                     }}
                     onClick={() => setShowPickupVoice(!showPickupVoice)}
                     title="Voice search for pickup location"
@@ -231,14 +333,30 @@ export default function UserHome() {
                   </button>
                   <button 
                     type="button" 
-                    style={{...sendBtn, background: isGettingLocation ? '#60a5fa' : '#1e40af', opacity: isGettingLocation ? 0.9 : 1, minWidth: '100px'}}
+                    style={{
+                      background: isGettingLocation ? '#60a5fa' : '#1e40af', 
+                      opacity: isGettingLocation ? 0.9 : 1,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)',
+                      cursor: 'pointer',
+                      fontSize: 'clamp(10px, 2.5vw, 12px)',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 'clamp(2px, 0.5vw, 4px)',
+                      minWidth: 'auto',
+                      height: 'auto',
+                      whiteSpace: 'nowrap'
+                    }}
                     aria-label="Use current location"
                     title="Use your current location"
                     onClick={useCurrentLocation}
                     disabled={isGettingLocation}
                   >
-                    <span style={{ marginRight: 4, fontSize: 14 }}>{isGettingLocation ? '⏳' : '📍'}</span>
-                    <span style={{ fontSize: 12 }}>{isGettingLocation ? 'Locating…' : 'Current'}</span>
+                    <span style={{ fontSize: 'clamp(10px, 2.5vw, 12px)' }}>{isGettingLocation ? '⏳' : '📍'}</span>
+                    <span style={{ fontSize: 'clamp(10px, 2.5vw, 12px)' }}>{isGettingLocation ? 'Locating…' : 'Current'}</span>
                   </button>
                 </div>
               </div>
@@ -324,15 +442,17 @@ export default function UserHome() {
                     background: showDropVoice ? '#ef4444' : '#16a34a',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)',
                     cursor: 'pointer',
-                    fontSize: '14px',
+                    fontSize: 'clamp(10px, 2.5vw, 12px)',
                     fontWeight: '600',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    minWidth: '80px'
+                    gap: 'clamp(2px, 0.5vw, 4px)',
+                    minWidth: 'auto',
+                    height: 'auto',
+                    whiteSpace: 'nowrap'
                   }}
                   onClick={() => setShowDropVoice(!showDropVoice)}
                   title="Voice search for destination"
@@ -412,17 +532,6 @@ export default function UserHome() {
             </div>
           </div>
         </section>
-
-<aside>
-  <img
-    style={artImg}
-    src="/rider-go.png"   // 👈 no /images, because file directly public me hai
-    alt="RiderGo ride illustration"
-    onError={(e) => {
-      e.currentTarget.src = '/rider-go.png'  
-    }}
-  />
-</aside>
       </div>
 
       {/* New Related Section - Ride Features & Quick Actions */}
@@ -1124,9 +1233,6 @@ export default function UserHome() {
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <Footer />
     </div>
   )
 }
