@@ -341,9 +341,9 @@ const UserNavbar = () => {
 
         {/* Auth Section */}
         <div style={{ 
-          marginTop: isLoggedIn ? '20px' : 'auto', 
-          paddingTop: '20px', 
-          borderTop: '1px solid #e5e7eb' 
+          marginTop: '0',
+          paddingTop: isLoggedIn ? '20px' : '0', 
+          borderTop: isLoggedIn ? '1px solid #e5e7eb' : 'none'
         }}>
           {!isLoggedIn ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

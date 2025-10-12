@@ -27,7 +27,7 @@ export default function UserSignup() {
         password
       }
 
-      const res = await fetch(`${BACKEND_URL}/user/signup`, {
+      const res = await fetch(`${BACKEND_URL}/auth/user/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
