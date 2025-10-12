@@ -6,12 +6,17 @@ import Footer from '../components/Footer'
 const container = { 
   maxWidth: 1200, 
   margin: '0 auto', 
-  padding: '0 clamp(8px, 3vw, 24px)',
+  padding: '0 clamp(12px, 4vw, 24px)',
   width: '100%',
   boxSizing: 'border-box'
 }
 
-const subnavWrap = { borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }
+const subnavWrap = { 
+  borderTop: '1px solid #e5e7eb', 
+  borderBottom: '1px solid #e5e7eb',
+  width: '100%',
+  boxSizing: 'border-box'
+}
 const subnav = { 
   ...container, 
   display: 'flex', 
@@ -293,7 +298,12 @@ export default function UserHome() {
   }
 
   return (
-    <div style={{ background: '#fff', minHeight: '100vh' }}>
+    <div style={{ 
+      background: '#fff', 
+      minHeight: '100vh',
+      width: '100%',
+      overflowX: 'hidden'
+    }}>
 
       {/* Secondary nav */}
       <div style={subnavWrap}>
@@ -581,7 +591,13 @@ export default function UserHome() {
       </div>
 
       {/* New Related Section - Ride Features & Quick Actions */}
-      <div style={{ background: '#f8fafc', paddingTop: 60, paddingBottom: 60 }}>
+      <div style={{ 
+        background: '#f8fafc', 
+        paddingTop: 60, 
+        paddingBottom: 60,
+        width: '100%',
+        boxSizing: 'border-box'
+      }}>
         <div style={container}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
             <h2 style={{ 
