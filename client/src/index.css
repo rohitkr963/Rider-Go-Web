@@ -24,11 +24,14 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  padding: 0;
+  width: 100%;
   min-height: 100vh;
+  display: block; /* instead of flex */
+  overflow-x: hidden;
+  background-color: #242424; /* keep your dark theme */
 }
+
 
 /* Responsive container used across pages */
 .container {
