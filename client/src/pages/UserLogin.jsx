@@ -14,11 +14,13 @@ export default function UserLogin() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000') + '/api'
+
   const onSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:3000/api/auth/user/login', {
+      const res = await fetch(`${BACKEND_URL}/auth/user/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
