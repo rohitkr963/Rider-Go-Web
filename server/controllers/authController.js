@@ -13,12 +13,10 @@ exports.userSignup = async (req, res) => {
   try {
     const { name, email, password } = req.body
     if (!name || !email || !password) return res.status(400).json({ message: 'Missing fields' })
-    // Normalize email to avoid case/whitespace mismatches
-    const normEmail = String(email).trim().toLowerCase()
-    const exists = await User.findOne({ email: normEmail })
+    const exists = await User.findOne({ email })
     if (exists) return res.status(409).json({ message: 'User exists' })
     const hashed = await bcrypt.hash(password, 10)
-    const user = await User.create({ name, email: normEmail, password: hashed })
+    const user = await User.create({ name, email, password: hashed })
     const token = signToken({ id: user._id, role: 'user' })
     return res.json({ message: 'Signup success', token })
   } catch (err) {
@@ -29,16 +27,7 @@ exports.userSignup = async (req, res) => {
 exports.userLogin = async (req, res) => {
   try {
     const { email, password } = req.body
-    // Normalize email to handle mobile input quirks (case/space)
-    const normEmail = String(email || '').trim().toLowerCase()
-    let user = await User.findOne({ email: normEmail })
-    // Fallback: case-insensitive exact match for legacy records saved with mixed case
-    if (!user && normEmail) {
-      try {
-        const esc = normEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        user = await User.findOne({ email: { $regex: `^${esc}$`, $options: 'i' } })
-      } catch (_) { /* ignore */ }
-    }
+    const user = await User.findOne({ email })
     if (!user) return res.status(401).json({ message: 'Invalid credentials' })
     const ok = await bcrypt.compare(password, user.password)
     if (!ok) return res.status(401).json({ message: 'Invalid credentials' })

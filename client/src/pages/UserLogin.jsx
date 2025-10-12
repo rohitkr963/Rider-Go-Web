@@ -18,11 +18,10 @@ export default function UserLogin() {
     e.preventDefault()
     setLoading(true)
     try {
-      const emailNorm = String(email || '').trim().toLowerCase()
       const res = await fetch('http://localhost:3000/api/auth/user/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailNorm, password }),
+        body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
       console.log('login response', res.status, data)
@@ -32,7 +31,7 @@ export default function UserLogin() {
       if (data.token) {
         localStorage.setItem('token', data.token)
         localStorage.setItem('userId', data.user?.id || data.user?._id || data.userId)
-        localStorage.setItem('userEmail', emailNorm)
+        localStorage.setItem('userEmail', email)
         localStorage.setItem('userName', data.user?.name || 'User')
         localStorage.setItem('userPhone', data.user?.phone || 'Not provided')
         localStorage.setItem('userJoinDate', new Date().toLocaleDateString())
