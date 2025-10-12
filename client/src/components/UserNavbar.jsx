@@ -340,54 +340,98 @@ const UserNavbar = () => {
         )}
 
         {/* Auth Section */}
-        <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+        <div style={{ 
+          marginTop: isLoggedIn ? '20px' : 'auto', 
+          paddingTop: '20px', 
+          borderTop: '1px solid #e5e7eb' 
+        }}>
           {!isLoggedIn ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ 
+                textAlign: 'center', 
+                marginBottom: '16px',
+                color: '#6b7280',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}>
+                Account Options
+              </div>
               <Link 
                 to="/user/login" 
                 onClick={() => setMobileOpen(false)}
                 style={{
-                  padding: '12px 16px',
-                  borderRadius: '8px',
+                  padding: '14px 20px',
+                  borderRadius: '10px',
                   textDecoration: 'none',
                   color: '#374151',
-                  background: 'transparent',
-                  fontWeight: '500',
+                  background: '#f8fafc',
+                  fontWeight: '600',
                   fontSize: '16px',
                   textAlign: 'center',
-                  border: '1px solid #e5e7eb'
+                  border: '2px solid #e5e7eb',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#f1f5f9'
+                  e.target.style.borderColor = '#3b82f6'
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#f8fafc'
+                  e.target.style.borderColor = '#e5e7eb'
                 }}
               >
-                Log in
+                🔑 Log in
               </Link>
               <Link 
                 to="/user/signup" 
                 onClick={() => setMobileOpen(false)}
                 style={{
-                  padding: '12px 16px',
-                  borderRadius: '8px',
+                  padding: '14px 20px',
+                  borderRadius: '10px',
                   textDecoration: 'none',
                   color: '#fff',
-                  background: '#3b82f6',
-                  fontWeight: '600',
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                  fontWeight: '700',
                   fontSize: '16px',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'translateY(-2px)'
+                  e.target.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'translateY(0)'
+                  e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)'
                 }}
               >
-                Sign up
+                ✨ Sign up
               </Link>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ 
-                padding: '12px 16px', 
-                background: '#f8fafc', 
-                borderRadius: '8px',
-                textAlign: 'center',
+                textAlign: 'center', 
+                marginBottom: '16px',
                 color: '#6b7280',
-                fontSize: '14px'
+                fontSize: '14px',
+                fontWeight: '500'
               }}>
-                Welcome, {userName}
+                Account Actions
+              </div>
+              
+              <div style={{ 
+                padding: '12px 16px', 
+                background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', 
+                borderRadius: '10px',
+                textAlign: 'center',
+                color: '#374151',
+                fontSize: '14px',
+                fontWeight: '600',
+                border: '1px solid #e5e7eb'
+              }}>
+                👋 Welcome, {userName}
               </div>
               
               <button 
@@ -396,20 +440,29 @@ const UserNavbar = () => {
                   setMobileOpen(false)
                 }}
                 style={{
-                  padding: '12px 16px',
-                  borderRadius: '8px',
+                  padding: '14px 20px',
+                  borderRadius: '10px',
                   textDecoration: 'none',
                   color: '#374151',
-                  background: 'transparent',
-                  fontWeight: '500',
+                  background: '#f8fafc',
+                  fontWeight: '600',
                   fontSize: '16px',
                   textAlign: 'center',
-                  border: '1px solid #e5e7eb',
+                  border: '2px solid #e5e7eb',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px'
+                  gap: '8px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#f1f5f9'
+                  e.target.style.borderColor = '#3b82f6'
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#f8fafc'
+                  e.target.style.borderColor = '#e5e7eb'
                 }}
               >
                 🔔 Notifications {unreadCount > 0 && `(${unreadCount})`}
@@ -419,15 +472,24 @@ const UserNavbar = () => {
                 to="/user/profile" 
                 onClick={() => setMobileOpen(false)}
                 style={{
-                  padding: '12px 16px',
-                  borderRadius: '8px',
+                  padding: '14px 20px',
+                  borderRadius: '10px',
                   textDecoration: 'none',
                   color: '#374151',
-                  background: 'transparent',
-                  fontWeight: '500',
+                  background: '#f8fafc',
+                  fontWeight: '600',
                   fontSize: '16px',
                   textAlign: 'center',
-                  border: '1px solid #e5e7eb'
+                  border: '2px solid #e5e7eb',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#f1f5f9'
+                  e.target.style.borderColor = '#3b82f6'
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#f8fafc'
+                  e.target.style.borderColor = '#e5e7eb'
                 }}
               >
                 👤 Profile
@@ -439,16 +501,26 @@ const UserNavbar = () => {
                   setMobileOpen(false)
                 }}
                 style={{
-                  padding: '12px 16px',
-                  borderRadius: '8px',
+                  padding: '14px 20px',
+                  borderRadius: '10px',
                   textDecoration: 'none',
                   color: '#fff',
-                  background: '#ef4444',
-                  fontWeight: '600',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  fontWeight: '700',
                   fontSize: '16px',
                   textAlign: 'center',
                   border: 'none',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'translateY(-2px)'
+                  e.target.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'translateY(0)'
+                  e.target.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)'
                 }}
               >
                 🚪 Logout
