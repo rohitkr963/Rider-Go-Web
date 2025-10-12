@@ -168,8 +168,9 @@ const UserNavbar = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Link to="/user/home" className="brand">RiderGo</Link>
 
+          {/* Desktop Navigation - Hidden on mobile */}
           {isLoggedIn && (
-            <div className="nav-links" role="navigation" aria-label="Main navigation">
+            <div className="nav-links desktop-nav" role="navigation" aria-label="Main navigation">
               <Link to="/user/home" className={isActive('/user/home') ? 'nav-link active' : 'nav-link'}>🏠 Home</Link>
               <Link to="/user/rides" className={isActive('/user/rides') ? 'nav-link active' : 'nav-link'}>🚗 My Rides</Link>
               <Link to="/user/accepted-rides" className={isActive('/user/accepted-rides') ? 'nav-link active' : 'nav-link'}>📋 My Bookings</Link>
@@ -178,21 +179,280 @@ const UserNavbar = () => {
         </div>
 
         <div className="top-right">
-          <button className="hamburger" aria-label="Toggle navigation" onClick={() => setMobileOpen(v => !v)}>☰</button>
+          {/* Desktop Auth Buttons - Hidden on mobile */}
+          <div className="desktop-auth">
+            {!isLoggedIn ? (
+              <>
+                <Link to="/user/login" className="nav-link">Log in</Link>
+                <Link to="/user/signup" className="btn btn-primary" style={{ textDecoration: 'none' }}>Sign up</Link>
+              </>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: '#6b7280', fontSize: 14 }}>Welcome, {userName}</span>
+                <button className="notif-btn" onClick={() => navigate('/user/notifications')} aria-label="Notifications" title="Notifications">
+                  <span style={{ fontSize: 18 }}>🔔</span>
+                  {unreadCount > 0 && (<span className="notif-badge">{unreadCount}</span>)}
+                </button>
+                <Link to="/user/profile" className={isActive('/user/profile') ? 'btn btn-primary' : 'btn'} style={{ textDecoration: 'none' }}>👤 Profile</Link>
+                <button className="btn btn-logout" onClick={handleLogout}>🚪 Logout</button>
+              </div>
+            )}
+          </div>
+
+          {/* Hamburger Menu Button - Always visible */}
+          <button 
+            className="hamburger" 
+            aria-label="Toggle navigation" 
+            onClick={() => setMobileOpen(v => !v)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'none',
+              border: 'none',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: '8px',
+              borderRadius: '4px',
+              color: '#374151'
+            }}
+          >
+            ☰
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      {mobileOpen && (
+        <div 
+          className="mobile-menu-overlay"
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 9998
+          }}
+        />
+      )}
+
+      {/* Mobile Menu */}
+      <div 
+        className={`mobile-menu ${mobileOpen ? 'open' : ''}`}
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          height: '100vh',
+          width: '280px',
+          background: '#fff',
+          boxShadow: '-2px 0 10px rgba(0, 0, 0, 0.1)',
+          zIndex: 9999,
+          transform: mobileOpen ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.3s ease',
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px'
+        }}
+      >
+        {/* Close Button */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ margin: 0, color: '#111', fontSize: '18px', fontWeight: '700' }}>Menu</h3>
+          <button 
+            onClick={() => setMobileOpen(false)}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#6b7280'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Navigation Links */}
+        {isLoggedIn && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <Link 
+              to="/user/home" 
+              className={isActive('/user/home') ? 'mobile-nav-link active' : 'mobile-nav-link'}
+              onClick={() => setMobileOpen(false)}
+              style={{
+                padding: '12px 16px',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                color: isActive('/user/home') ? '#3b82f6' : '#374151',
+                background: isActive('/user/home') ? '#eff6ff' : 'transparent',
+                fontWeight: isActive('/user/home') ? '600' : '500',
+                fontSize: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              🏠 Home
+            </Link>
+            <Link 
+              to="/user/rides" 
+              className={isActive('/user/rides') ? 'mobile-nav-link active' : 'mobile-nav-link'}
+              onClick={() => setMobileOpen(false)}
+              style={{
+                padding: '12px 16px',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                color: isActive('/user/rides') ? '#3b82f6' : '#374151',
+                background: isActive('/user/rides') ? '#eff6ff' : 'transparent',
+                fontWeight: isActive('/user/rides') ? '600' : '500',
+                fontSize: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              🚗 My Rides
+            </Link>
+            <Link 
+              to="/user/accepted-rides" 
+              className={isActive('/user/accepted-rides') ? 'mobile-nav-link active' : 'mobile-nav-link'}
+              onClick={() => setMobileOpen(false)}
+              style={{
+                padding: '12px 16px',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                color: isActive('/user/accepted-rides') ? '#3b82f6' : '#374151',
+                background: isActive('/user/accepted-rides') ? '#eff6ff' : 'transparent',
+                fontWeight: isActive('/user/accepted-rides') ? '600' : '500',
+                fontSize: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              📋 My Bookings
+            </Link>
+          </div>
+        )}
+
+        {/* Auth Section */}
+        <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
           {!isLoggedIn ? (
-            <>
-              <Link to="/user/login" className="nav-link">Log in</Link>
-              <Link to="/user/signup" className="btn btn-primary" style={{ textDecoration: 'none' }}>Sign up</Link>
-            </>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <Link 
+                to="/user/login" 
+                onClick={() => setMobileOpen(false)}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  color: '#374151',
+                  background: 'transparent',
+                  fontWeight: '500',
+                  fontSize: '16px',
+                  textAlign: 'center',
+                  border: '1px solid #e5e7eb'
+                }}
+              >
+                Log in
+              </Link>
+              <Link 
+                to="/user/signup" 
+                onClick={() => setMobileOpen(false)}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  color: '#fff',
+                  background: '#3b82f6',
+                  fontWeight: '600',
+                  fontSize: '16px',
+                  textAlign: 'center'
+                }}
+              >
+                Sign up
+              </Link>
+            </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: '#6b7280', fontSize: 14 }}>Welcome, {userName}</span>
-              <button className="notif-btn" onClick={() => navigate('/user/notifications')} aria-label="Notifications" title="Notifications">
-                <span style={{ fontSize: 18 }}>🔔</span>
-                {unreadCount > 0 && (<span className="notif-badge">{unreadCount}</span>)}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ 
+                padding: '12px 16px', 
+                background: '#f8fafc', 
+                borderRadius: '8px',
+                textAlign: 'center',
+                color: '#6b7280',
+                fontSize: '14px'
+              }}>
+                Welcome, {userName}
+              </div>
+              
+              <button 
+                onClick={() => {
+                  navigate('/user/notifications')
+                  setMobileOpen(false)
+                }}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  color: '#374151',
+                  background: 'transparent',
+                  fontWeight: '500',
+                  fontSize: '16px',
+                  textAlign: 'center',
+                  border: '1px solid #e5e7eb',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                🔔 Notifications {unreadCount > 0 && `(${unreadCount})`}
               </button>
-              <Link to="/user/profile" className={isActive('/user/profile') ? 'btn btn-primary' : 'btn'} style={{ textDecoration: 'none' }}>👤 Profile</Link>
-              <button className="btn btn-logout" onClick={handleLogout}>🚪 Logout</button>
+              
+              <Link 
+                to="/user/profile" 
+                onClick={() => setMobileOpen(false)}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  color: '#374151',
+                  background: 'transparent',
+                  fontWeight: '500',
+                  fontSize: '16px',
+                  textAlign: 'center',
+                  border: '1px solid #e5e7eb'
+                }}
+              >
+                👤 Profile
+              </Link>
+              
+              <button 
+                onClick={() => {
+                  handleLogout()
+                  setMobileOpen(false)
+                }}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  color: '#fff',
+                  background: '#ef4444',
+                  fontWeight: '600',
+                  fontSize: '16px',
+                  textAlign: 'center',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                🚪 Logout
+              </button>
             </div>
           )}
         </div>

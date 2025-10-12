@@ -1,8 +1,15 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import VoiceSearchAdvanced from '../components/VoiceSearchAdvanced'
+import Footer from '../components/Footer'
 
-const container = { maxWidth: 1200, margin: '0 auto', padding: '0 clamp(16px, 4vw, 24px)' }
+const container = { 
+  maxWidth: 1200, 
+  margin: '0 auto', 
+  padding: '0 clamp(8px, 3vw, 24px)',
+  width: '100%',
+  boxSizing: 'border-box'
+}
 
 const subnavWrap = { borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }
 const subnav = { 
@@ -49,23 +56,36 @@ const promoSmall = { color: '#6b7280', fontSize: 'clamp(10px, 2.5vw, 12px)', mar
 
 const inputRow = { 
   display: 'grid', 
-  gridTemplateColumns: 'clamp(28px, 6vw, 32px) 1fr clamp(100px, 20vw, 140px)', 
+  gridTemplateColumns: 'clamp(24px, 5vw, 32px) 1fr auto', 
   alignItems: 'center', 
   background: '#fff', 
   border: '1px solid #e5e7eb', 
   borderRadius: 12, 
-  padding: 'clamp(4px, 1vw, 6px)',
-  gap: 'clamp(4px, 1vw, 8px)'
+  padding: 'clamp(2px, 1vw, 6px)',
+  gap: 'clamp(2px, 1vw, 8px)',
+  minHeight: 'clamp(40px, 7vw, 48px)',
+  width: '100%',
+  boxSizing: 'border-box'
 }
 const input = { 
   border: 'none', 
   outline: 'none', 
-  fontSize: 'clamp(14px, 3vw, 16px)', 
-  padding: 'clamp(8px, 2vw, 10px) clamp(6px, 1.5vw, 8px)', 
+  fontSize: 'clamp(12px, 2.8vw, 16px)', 
+  padding: 'clamp(6px, 1.5vw, 10px) clamp(4px, 1.2vw, 8px)', 
   background: '#f9fafb', 
-  borderRadius: 8 
+  borderRadius: 8,
+  width: '100%',
+  boxSizing: 'border-box',
+  minWidth: 0
 }
-const inputIcon = { textAlign: 'center', fontSize: 'clamp(16px, 3.5vw, 18px)' }
+const inputIcon = { 
+  textAlign: 'center', 
+  fontSize: 'clamp(14px, 3vw, 18px)',
+  minWidth: 'clamp(20px, 4vw, 24px)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center'
+}
 const sendBtn = { 
   justifySelf: 'end', 
   background: '#3b82f6', 
@@ -89,16 +109,23 @@ const actions = {
   flexWrap: 'wrap'
 }
 const darkBtn = { 
-  padding: 'clamp(10px, 2.5vw, 12px) clamp(14px, 3.5vw, 18px)', 
+  padding: 'clamp(10px, 2.5vw, 14px) clamp(12px, 3vw, 20px)', 
   background: '#000', 
   color: '#fff', 
   borderRadius: 10, 
   fontWeight: 700, 
   cursor: 'pointer', 
   border: '1px solid #000',
-  fontSize: 'clamp(12px, 2.5vw, 14px)',
+  fontSize: 'clamp(12px, 2.8vw, 15px)',
   flex: '1 1 auto',
-  minWidth: '120px'
+  minWidth: 'clamp(80px, 18vw, 140px)',
+  height: 'clamp(40px, 7vw, 48px)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  transition: 'all 0.2s ease',
+  width: '100%',
+  boxSizing: 'border-box'
 }
 // top-level button styles are defined in navbar component; not needed here
 
@@ -296,7 +323,13 @@ export default function UserHome() {
 
           <div style={promoSmall}>*Valid within 15 days of signup.</div>
 
-          <div style={{ display: 'grid', gap: 'clamp(8px, 2vw, 12px)', maxWidth: '100%' }}>
+          <div style={{ 
+            display: 'grid', 
+            gap: 'clamp(6px, 1.5vw, 12px)', 
+            maxWidth: '100%',
+            width: '100%',
+            boxSizing: 'border-box'
+          }}>
             <div style={{ position: 'relative' }}>
               <div style={inputRow}>
                 <span style={inputIcon}>📍</span>
@@ -307,7 +340,14 @@ export default function UserHome() {
                   onChange={handlePickupChange}
                   onFocus={() => pickup && handlePickupChange({ target: { value: pickup } })}
                 />
-                <div style={{ display: 'flex', gap: 'clamp(4px, 1vw, 8px)', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  gap: 'clamp(2px, 0.8vw, 8px)', 
+                  alignItems: 'center', 
+                  flexWrap: 'nowrap',
+                  minWidth: 'fit-content',
+                  maxWidth: '100%'
+                }}>
                   <button 
                     type="button" 
                     style={{
@@ -315,21 +355,23 @@ export default function UserHome() {
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
-                      padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)',
+                      padding: 'clamp(4px, 1.2vw, 8px) clamp(6px, 1.5vw, 12px)',
                       cursor: 'pointer',
-                      fontSize: 'clamp(10px, 2.5vw, 12px)',
+                      fontSize: 'clamp(10px, 2.5vw, 13px)',
                       fontWeight: '600',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 'clamp(2px, 0.5vw, 4px)',
-                      minWidth: 'auto',
-                      height: 'auto',
-                      whiteSpace: 'nowrap'
+                      gap: 'clamp(2px, 0.6vw, 5px)',
+                      minWidth: 'clamp(50px, 10vw, 70px)',
+                      height: 'clamp(28px, 5.5vw, 36px)',
+                      whiteSpace: 'nowrap',
+                      justifyContent: 'center',
+                      flexShrink: 0
                     }}
                     onClick={() => setShowPickupVoice(!showPickupVoice)}
                     title="Voice search for pickup location"
                   >
-                    🎤 {showPickupVoice ? 'Hide' : 'Voice'}
+                    🎤 <span style={{ display: window.innerWidth < 480 ? 'none' : 'inline' }}>{showPickupVoice ? 'Hide' : 'Voice'}</span>
                   </button>
                   <button 
                     type="button" 
@@ -339,24 +381,26 @@ export default function UserHome() {
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
-                      padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)',
+                      padding: 'clamp(4px, 1.2vw, 8px) clamp(6px, 1.5vw, 12px)',
                       cursor: 'pointer',
-                      fontSize: 'clamp(10px, 2.5vw, 12px)',
+                      fontSize: 'clamp(10px, 2.5vw, 13px)',
                       fontWeight: '600',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 'clamp(2px, 0.5vw, 4px)',
-                      minWidth: 'auto',
-                      height: 'auto',
-                      whiteSpace: 'nowrap'
+                      gap: 'clamp(2px, 0.6vw, 5px)',
+                      minWidth: 'clamp(50px, 10vw, 70px)',
+                      height: 'clamp(28px, 5.5vw, 36px)',
+                      whiteSpace: 'nowrap',
+                      justifyContent: 'center',
+                      flexShrink: 0
                     }}
                     aria-label="Use current location"
                     title="Use your current location"
                     onClick={useCurrentLocation}
                     disabled={isGettingLocation}
                   >
-                    <span style={{ fontSize: 'clamp(10px, 2.5vw, 12px)' }}>{isGettingLocation ? '⏳' : '📍'}</span>
-                    <span style={{ fontSize: 'clamp(10px, 2.5vw, 12px)' }}>{isGettingLocation ? 'Locating…' : 'Current'}</span>
+                    <span style={{ fontSize: 'clamp(10px, 2.5vw, 13px)' }}>{isGettingLocation ? '⏳' : '📍'}</span>
+                    <span style={{ fontSize: 'clamp(10px, 2.5vw, 13px)', display: window.innerWidth < 480 ? 'none' : 'inline' }}>{isGettingLocation ? 'Locating…' : 'Current'}</span>
                   </button>
                 </div>
               </div>
@@ -443,21 +487,23 @@ export default function UserHome() {
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',
-                    padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)',
+                    padding: 'clamp(4px, 1.2vw, 8px) clamp(6px, 1.5vw, 12px)',
                     cursor: 'pointer',
-                    fontSize: 'clamp(10px, 2.5vw, 12px)',
+                    fontSize: 'clamp(10px, 2.5vw, 13px)',
                     fontWeight: '600',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 'clamp(2px, 0.5vw, 4px)',
-                    minWidth: 'auto',
-                    height: 'auto',
-                    whiteSpace: 'nowrap'
+                    gap: 'clamp(2px, 0.6vw, 5px)',
+                    minWidth: 'clamp(50px, 10vw, 70px)',
+                    height: 'clamp(28px, 5.5vw, 36px)',
+                    whiteSpace: 'nowrap',
+                    justifyContent: 'center',
+                    flexShrink: 0
                   }}
                   onClick={() => setShowDropVoice(!showDropVoice)}
                   title="Voice search for destination"
                 >
-                  🎤 {showDropVoice ? 'Hide' : 'Voice'}
+                  🎤 <span style={{ display: window.innerWidth < 480 ? 'none' : 'inline' }}>{showDropVoice ? 'Hide' : 'Voice'}</span>
                 </button>
               </div>
               
@@ -538,10 +584,22 @@ export default function UserHome() {
       <div style={{ background: '#f8fafc', paddingTop: 60, paddingBottom: 60 }}>
         <div style={container}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
-            <h2 style={{ fontSize: 36, fontWeight: 800, color: '#111', marginBottom: 16 }}>
+            <h2 style={{ 
+              fontSize: 'clamp(24px, 6vw, 36px)', 
+              fontWeight: 800, 
+              color: '#111', 
+              marginBottom: 16,
+              lineHeight: 1.2
+            }}>
               Why Choose RiderGo?
             </h2>
-            <p style={{ fontSize: 18, color: '#6b7280', maxWidth: 600, margin: '0 auto' }}>
+            <p style={{ 
+              fontSize: 'clamp(14px, 3.5vw, 18px)', 
+              color: '#6b7280', 
+              maxWidth: 600, 
+              margin: '0 auto',
+              lineHeight: 1.6
+            }}>
               Experience the best ride-sharing service with real-time tracking, voice search, and affordable prices
             </p>
           </div>
@@ -549,24 +607,34 @@ export default function UserHome() {
           {/* Features Grid */}
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-            gap: 32, 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+            gap: 'clamp(12px, 3vw, 32px)', 
             marginBottom: 48 
           }}>
             {/* Real-time Tracking */}
             <div style={{
               background: '#fff',
               borderRadius: 16,
-              padding: 24,
+              padding: 'clamp(16px, 4vw, 24px)',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               textAlign: 'center',
               border: '1px solid #e5e7eb'
             }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>🗺️</div>
-              <h3 style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 12 }}>
+              <div style={{ fontSize: 'clamp(36px, 8vw, 48px)', marginBottom: 16 }}>🗺️</div>
+              <h3 style={{ 
+                fontSize: 'clamp(16px, 4vw, 20px)', 
+                fontWeight: 700, 
+                color: '#111', 
+                marginBottom: 12,
+                lineHeight: 1.3
+              }}>
                 Real-time Tracking
               </h3>
-              <p style={{ color: '#6b7280', lineHeight: 1.6 }}>
+              <p style={{ 
+                color: '#6b7280', 
+                lineHeight: 1.6,
+                fontSize: 'clamp(13px, 3vw, 15px)'
+              }}>
                 Track your captain's location in real-time with live map updates and accurate arrival times
               </p>
             </div>
@@ -575,16 +643,26 @@ export default function UserHome() {
             <div style={{
               background: '#fff',
               borderRadius: 16,
-              padding: 24,
+              padding: 'clamp(16px, 4vw, 24px)',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               textAlign: 'center',
               border: '1px solid #e5e7eb'
             }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>🎤</div>
-              <h3 style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 12 }}>
+              <div style={{ fontSize: 'clamp(36px, 8vw, 48px)', marginBottom: 16 }}>🎤</div>
+              <h3 style={{ 
+                fontSize: 'clamp(16px, 4vw, 20px)', 
+                fontWeight: 700, 
+                color: '#111', 
+                marginBottom: 12,
+                lineHeight: 1.3
+              }}>
                 Voice Search
               </h3>
-              <p style={{ color: '#6b7280', lineHeight: 1.6 }}>
+              <p style={{ 
+                color: '#6b7280', 
+                lineHeight: 1.6,
+                fontSize: 'clamp(13px, 3vw, 15px)'
+              }}>
                 Simply speak your destination in English or Hindi - no need to type long addresses
               </p>
             </div>
@@ -593,16 +671,26 @@ export default function UserHome() {
             <div style={{
               background: '#fff',
               borderRadius: 16,
-              padding: 24,
+              padding: 'clamp(16px, 4vw, 24px)',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               textAlign: 'center',
               border: '1px solid #e5e7eb'
             }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>👥</div>
-              <h3 style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 12 }}>
+              <div style={{ fontSize: 'clamp(36px, 8vw, 48px)', marginBottom: 16 }}>👥</div>
+              <h3 style={{ 
+                fontSize: 'clamp(16px, 4vw, 20px)', 
+                fontWeight: 700, 
+                color: '#111', 
+                marginBottom: 12,
+                lineHeight: 1.3
+              }}>
                 Group Booking
               </h3>
-              <p style={{ color: '#6b7280', lineHeight: 1.6 }}>
+              <p style={{ 
+                color: '#6b7280', 
+                lineHeight: 1.6,
+                fontSize: 'clamp(13px, 3vw, 15px)'
+              }}>
                 Book multiple seats for your family or friends in the same auto rickshaw
               </p>
             </div>
@@ -612,20 +700,32 @@ export default function UserHome() {
           <div style={{
             background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
             borderRadius: 20,
-            padding: 40,
+            padding: 'clamp(24px, 6vw, 40px)',
             color: '#fff',
             textAlign: 'center'
           }}>
-            <h3 style={{ fontSize: 28, fontWeight: 800, marginBottom: 16 }}>
+            <h3 style={{ 
+              fontSize: 'clamp(20px, 5vw, 28px)', 
+              fontWeight: 800, 
+              marginBottom: 16,
+              lineHeight: 1.2
+            }}>
               Quick Actions
             </h3>
-            <p style={{ fontSize: 16, opacity: 0.9, marginBottom: 32, maxWidth: 500, margin: '0 auto 32px' }}>
+            <p style={{ 
+              fontSize: 'clamp(14px, 3.5vw, 16px)', 
+              opacity: 0.9, 
+              marginBottom: 32, 
+              maxWidth: 500, 
+              margin: '0 auto 32px',
+              lineHeight: 1.5
+            }}>
               Access your ride history, manage bookings, or get help with just one click
             </p>
             
             <div style={{ 
               display: 'flex', 
-              gap: 16, 
+              gap: 'clamp(12px, 3vw, 16px)', 
               justifyContent: 'center', 
               flexWrap: 'wrap' 
             }}>
@@ -635,7 +735,7 @@ export default function UserHome() {
                   background: 'rgba(255, 255, 255, 0.2)',
                   border: '1px solid rgba(255, 255, 255, 0.3)',
                   borderRadius: 12,
-                  padding: '12px 24px',
+                  padding: 'clamp(10px, 2.5vw, 12px) clamp(16px, 4vw, 24px)',
                   color: '#fff',
                   textDecoration: 'none',
                   fontWeight: 600,
@@ -643,7 +743,10 @@ export default function UserHome() {
                   alignItems: 'center',
                   gap: 8,
                   transition: 'all 0.2s ease',
-                  backdropFilter: 'blur(10px)'
+                  backdropFilter: 'blur(10px)',
+                  fontSize: 'clamp(13px, 3vw, 15px)',
+                  minWidth: 'clamp(120px, 25vw, 160px)',
+                  justifyContent: 'center'
                 }}
                 onMouseEnter={(e) => {
                   e.target.style.background = 'rgba(255, 255, 255, 0.3)'
@@ -663,7 +766,7 @@ export default function UserHome() {
                   background: 'rgba(255, 255, 255, 0.2)',
                   border: '1px solid rgba(255, 255, 255, 0.3)',
                   borderRadius: 12,
-                  padding: '12px 24px',
+                  padding: 'clamp(10px, 2.5vw, 12px) clamp(16px, 4vw, 24px)',
                   color: '#fff',
                   textDecoration: 'none',
                   fontWeight: 600,
@@ -671,7 +774,10 @@ export default function UserHome() {
                   alignItems: 'center',
                   gap: 8,
                   transition: 'all 0.2s ease',
-                  backdropFilter: 'blur(10px)'
+                  backdropFilter: 'blur(10px)',
+                  fontSize: 'clamp(13px, 3vw, 15px)',
+                  minWidth: 'clamp(120px, 25vw, 160px)',
+                  justifyContent: 'center'
                 }}
                 onMouseEnter={(e) => {
                   e.target.style.background = 'rgba(255, 255, 255, 0.3)'
@@ -690,7 +796,7 @@ export default function UserHome() {
                   background: 'rgba(255, 255, 255, 0.2)',
                   border: '1px solid rgba(255, 255, 255, 0.3)',
                   borderRadius: 12,
-                  padding: '12px 24px',
+                  padding: 'clamp(10px, 2.5vw, 12px) clamp(16px, 4vw, 24px)',
                   color: '#fff',
                   fontWeight: 600,
                   display: 'flex',
@@ -698,7 +804,10 @@ export default function UserHome() {
                   gap: 8,
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  backdropFilter: 'blur(10px)'
+                  backdropFilter: 'blur(10px)',
+                  fontSize: 'clamp(13px, 3vw, 15px)',
+                  minWidth: 'clamp(120px, 25vw, 160px)',
+                  justifyContent: 'center'
                 }}
                 onClick={() => alert('Help & Support coming soon!')}
                 onMouseEnter={(e) => {
@@ -729,8 +838,8 @@ export default function UserHome() {
             
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: 16 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+              gap: 'clamp(8px, 2vw, 16px)' 
             }}>
               {[
                 { name: 'Connaught Place', icon: '🏢' },
@@ -746,15 +855,17 @@ export default function UserHome() {
                     background: '#fff',
                     border: '1px solid #e5e7eb',
                     borderRadius: 12,
-                    padding: '16px 20px',
+                    padding: 'clamp(12px, 3vw, 16px) clamp(14px, 3.5vw, 20px)',
                     textAlign: 'center',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 12,
+                    gap: 'clamp(8px, 2vw, 12px)',
                     fontWeight: 600,
-                    color: '#374151'
+                    color: '#374151',
+                    fontSize: 'clamp(12px, 3vw, 14px)',
+                    minHeight: 'clamp(44px, 8vw, 48px)'
                   }}
                   onClick={() => {
                     setDrop(dest.name + ', Delhi')
@@ -778,8 +889,8 @@ export default function UserHome() {
                     e.target.style.boxShadow = 'none'
                   }}
                 >
-                  <span style={{ fontSize: 24 }}>{dest.icon}</span>
-                  <span>{dest.name}</span>
+                  <span style={{ fontSize: 'clamp(18px, 4vw, 24px)' }}>{dest.icon}</span>
+                  <span style={{ fontSize: 'clamp(12px, 3vw, 14px)' }}>{dest.name}</span>
                 </button>
               ))}
             </div>
@@ -805,36 +916,72 @@ export default function UserHome() {
             
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
-              gap: 24,
+              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+              gap: 'clamp(12px, 3vw, 24px)',
               textAlign: 'center'
             }}>
               <div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: '#3b82f6', marginBottom: 8 }}>
+                <div style={{ 
+                  fontSize: 'clamp(24px, 6vw, 32px)', 
+                  fontWeight: 800, 
+                  color: '#3b82f6', 
+                  marginBottom: 8 
+                }}>
                   1000+
                 </div>
-                <div style={{ color: '#6b7280', fontWeight: 600 }}>Happy Riders</div>
+                <div style={{ 
+                  color: '#6b7280', 
+                  fontWeight: 600,
+                  fontSize: 'clamp(12px, 3vw, 14px)'
+                }}>Happy Riders</div>
               </div>
               
               <div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: '#10b981', marginBottom: 8 }}>
+                <div style={{ 
+                  fontSize: 'clamp(24px, 6vw, 32px)', 
+                  fontWeight: 800, 
+                  color: '#10b981', 
+                  marginBottom: 8 
+                }}>
                   500+
                 </div>
-                <div style={{ color: '#6b7280', fontWeight: 600 }}>Active Captains</div>
+                <div style={{ 
+                  color: '#6b7280', 
+                  fontWeight: 600,
+                  fontSize: 'clamp(12px, 3vw, 14px)'
+                }}>Active Captains</div>
               </div>
               
               <div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: '#f59e0b', marginBottom: 8 }}>
+                <div style={{ 
+                  fontSize: 'clamp(24px, 6vw, 32px)', 
+                  fontWeight: 800, 
+                  color: '#f59e0b', 
+                  marginBottom: 8 
+                }}>
                   24/7
                 </div>
-                <div style={{ color: '#6b7280', fontWeight: 600 }}>Service Available</div>
+                <div style={{ 
+                  color: '#6b7280', 
+                  fontWeight: 600,
+                  fontSize: 'clamp(12px, 3vw, 14px)'
+                }}>Service Available</div>
               </div>
               
               <div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: '#ef4444', marginBottom: 8 }}>
+                <div style={{ 
+                  fontSize: 'clamp(24px, 6vw, 32px)', 
+                  fontWeight: 800, 
+                  color: '#ef4444', 
+                  marginBottom: 8 
+                }}>
                   ₹15+
                 </div>
-                <div style={{ color: '#6b7280', fontWeight: 600 }}>Starting Fare</div>
+                <div style={{ 
+                  color: '#6b7280', 
+                  fontWeight: 600,
+                  fontSize: 'clamp(12px, 3vw, 14px)'
+                }}>Starting Fare</div>
               </div>
             </div>
           </div>
@@ -853,8 +1000,8 @@ export default function UserHome() {
             
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-              gap: 24 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+              gap: 'clamp(12px, 3vw, 24px)' 
             }}>
               {[
                 { 
@@ -885,7 +1032,7 @@ export default function UserHome() {
                 <div key={index} style={{
                   background: '#fff',
                   borderRadius: 16,
-                  padding: 24,
+                  padding: 'clamp(16px, 4vw, 24px)',
                   textAlign: 'center',
                   position: 'relative',
                   border: '1px solid #e5e7eb',
@@ -918,11 +1065,21 @@ export default function UserHome() {
                   }}>
                     {item.step}
                   </div>
-                  <div style={{ fontSize: 40, marginBottom: 16 }}>{item.icon}</div>
-                  <h4 style={{ fontSize: 18, fontWeight: 700, color: '#111', marginBottom: 8 }}>
+                  <div style={{ fontSize: 'clamp(32px, 6vw, 40px)', marginBottom: 16 }}>{item.icon}</div>
+                  <h4 style={{ 
+                    fontSize: 'clamp(16px, 4vw, 18px)', 
+                    fontWeight: 700, 
+                    color: '#111', 
+                    marginBottom: 8,
+                    lineHeight: 1.3
+                  }}>
                     {item.title}
                   </h4>
-                  <p style={{ color: '#6b7280', lineHeight: 1.5, fontSize: 14 }}>
+                  <p style={{ 
+                    color: '#6b7280', 
+                    lineHeight: 1.5, 
+                    fontSize: 'clamp(12px, 3vw, 14px)' 
+                  }}>
                     {item.desc}
                   </p>
                 </div>
@@ -949,8 +1106,8 @@ export default function UserHome() {
             
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: 24 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+              gap: 'clamp(12px, 3vw, 24px)' 
             }}>
               {[
                 { icon: '✅', title: 'Verified Captains', desc: 'All drivers verified with documents' },
@@ -961,14 +1118,23 @@ export default function UserHome() {
                 <div key={index} style={{
                   background: 'rgba(255, 255, 255, 0.1)',
                   borderRadius: 12,
-                  padding: 20,
+                  padding: 'clamp(16px, 4vw, 20px)',
                   textAlign: 'center',
                   backdropFilter: 'blur(10px)',
                   border: '1px solid rgba(255, 255, 255, 0.2)'
                 }}>
-                  <div style={{ fontSize: 32, marginBottom: 12 }}>{item.icon}</div>
-                  <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{item.title}</h4>
-                  <p style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.4 }}>{item.desc}</p>
+                  <div style={{ fontSize: 'clamp(24px, 5vw, 32px)', marginBottom: 12 }}>{item.icon}</div>
+                  <h4 style={{ 
+                    fontSize: 'clamp(14px, 3.5vw, 16px)', 
+                    fontWeight: 700, 
+                    marginBottom: 8,
+                    lineHeight: 1.3
+                  }}>{item.title}</h4>
+                  <p style={{ 
+                    fontSize: 'clamp(11px, 2.8vw, 13px)', 
+                    opacity: 0.9, 
+                    lineHeight: 1.4 
+                  }}>{item.desc}</p>
                 </div>
               ))}
             </div>
@@ -998,13 +1164,13 @@ export default function UserHome() {
             
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-              gap: 24 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+              gap: 'clamp(12px, 3vw, 24px)' 
             }}>
               <div style={{
                 background: '#fff',
                 borderRadius: 16,
-                padding: 24,
+                padding: 'clamp(12px, 3vw, 24px)',
                 border: '2px solid #3b82f6',
                 textAlign: 'center',
                 position: 'relative'
@@ -1023,20 +1189,35 @@ export default function UserHome() {
                 }}>
                   MOST POPULAR
                 </div>
-                <div style={{ fontSize: 40, marginBottom: 16 }}>🛺</div>
-                <h4 style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 8 }}>
+                <div style={{ fontSize: 'clamp(32px, 6vw, 40px)', marginBottom: 16 }}>🛺</div>
+                <h4 style={{ 
+                  fontSize: 'clamp(16px, 4vw, 20px)', 
+                  fontWeight: 700, 
+                  color: '#111', 
+                  marginBottom: 8,
+                  lineHeight: 1.3
+                }}>
                   Auto Rickshaw
                 </h4>
-                <div style={{ fontSize: 32, fontWeight: 800, color: '#3b82f6', marginBottom: 8 }}>
+                <div style={{ 
+                  fontSize: 'clamp(24px, 6vw, 32px)', 
+                  fontWeight: 800, 
+                  color: '#3b82f6', 
+                  marginBottom: 8 
+                }}>
                   ₹15
                 </div>
-                <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 16 }}>
+                <p style={{ 
+                  color: '#6b7280', 
+                  fontSize: 'clamp(12px, 3vw, 14px)', 
+                  marginBottom: 16 
+                }}>
                   Base fare + ₹8/km
                 </p>
                 <ul style={{ 
                   textAlign: 'left', 
                   color: '#374151', 
-                  fontSize: 14,
+                  fontSize: 'clamp(12px, 3vw, 14px)',
                   lineHeight: 1.6,
                   listStyle: 'none',
                   padding: 0
@@ -1051,24 +1232,39 @@ export default function UserHome() {
               <div style={{
                 background: '#fff',
                 borderRadius: 16,
-                padding: 24,
+                padding: 'clamp(12px, 3vw, 24px)',
                 border: '1px solid #e5e7eb',
                 textAlign: 'center'
               }}>
-                <div style={{ fontSize: 40, marginBottom: 16 }}>🚗</div>
-                <h4 style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 8 }}>
+                <div style={{ fontSize: 'clamp(32px, 6vw, 40px)', marginBottom: 16 }}>🚗</div>
+                <h4 style={{ 
+                  fontSize: 'clamp(16px, 4vw, 20px)', 
+                  fontWeight: 700, 
+                  color: '#111', 
+                  marginBottom: 8,
+                  lineHeight: 1.3
+                }}>
                   Cab (Coming Soon)
                 </h4>
-                <div style={{ fontSize: 32, fontWeight: 800, color: '#6b7280', marginBottom: 8 }}>
+                <div style={{ 
+                  fontSize: 'clamp(24px, 6vw, 32px)', 
+                  fontWeight: 800, 
+                  color: '#6b7280', 
+                  marginBottom: 8 
+                }}>
                   ₹25
                 </div>
-                <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 16 }}>
+                <p style={{ 
+                  color: '#6b7280', 
+                  fontSize: 'clamp(12px, 3vw, 14px)', 
+                  marginBottom: 16 
+                }}>
                   Base fare + ₹12/km
                 </p>
                 <ul style={{ 
                   textAlign: 'left', 
                   color: '#6b7280', 
-                  fontSize: 14,
+                  fontSize: 'clamp(12px, 3vw, 14px)',
                   lineHeight: 1.6,
                   listStyle: 'none',
                   padding: 0
@@ -1100,7 +1296,7 @@ export default function UserHome() {
             
             <div style={{ 
               display: 'flex', 
-              gap: 16, 
+              gap: 'clamp(12px, 3vw, 16px)', 
               justifyContent: 'center', 
               flexWrap: 'wrap' 
             }}>
@@ -1108,7 +1304,7 @@ export default function UserHome() {
                 background: 'rgba(255, 255, 255, 0.2)',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
                 borderRadius: 12,
-                padding: '12px 24px',
+                padding: 'clamp(10px, 2.5vw, 12px) clamp(16px, 4vw, 24px)',
                 color: '#fff',
                 fontWeight: 600,
                 display: 'flex',
@@ -1116,7 +1312,10 @@ export default function UserHome() {
                 gap: 8,
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                backdropFilter: 'blur(10px)'
+                backdropFilter: 'blur(10px)',
+                fontSize: 'clamp(13px, 3vw, 15px)',
+                minWidth: 'clamp(140px, 28vw, 180px)',
+                justifyContent: 'center'
               }}
               onClick={() => alert('Android App coming soon!')}
               onMouseEnter={(e) => {
@@ -1135,7 +1334,7 @@ export default function UserHome() {
                 background: 'rgba(255, 255, 255, 0.2)',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
                 borderRadius: 12,
-                padding: '12px 24px',
+                padding: 'clamp(10px, 2.5vw, 12px) clamp(16px, 4vw, 24px)',
                 color: '#fff',
                 fontWeight: 600,
                 display: 'flex',
@@ -1143,7 +1342,10 @@ export default function UserHome() {
                 gap: 8,
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                backdropFilter: 'blur(10px)'
+                backdropFilter: 'blur(10px)',
+                fontSize: 'clamp(13px, 3vw, 15px)',
+                minWidth: 'clamp(140px, 28vw, 180px)',
+                justifyContent: 'center'
               }}
               onClick={() => alert('iOS App coming soon!')}
               onMouseEnter={(e) => {
@@ -1233,6 +1435,7 @@ export default function UserHome() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   )
 }

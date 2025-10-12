@@ -48,6 +48,55 @@ body {
 
 /* Mobile-first responsive hero layout for UserHome */
 /* Desktop: Search form first, then image */
+
+/* Responsive Navbar Styles */
+@media (max-width: 768px) {
+  .desktop-nav {
+    display: none !important;
+  }
+  
+  .desktop-auth {
+    display: none !important;
+  }
+  
+  .hamburger {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .desktop-nav {
+    display: flex !important;
+  }
+  
+  .desktop-auth {
+    display: flex !important;
+  }
+  
+  .hamburger {
+    display: none !important;
+  }
+  
+  .mobile-menu {
+    display: none !important;
+  }
+}
+
+/* Mobile Menu Styles */
+.mobile-menu {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu {
+    display: flex !important;
+  }
+}
+
+/* Body scroll lock when mobile menu is open */
+body.mobile-nav-open {
+  overflow: hidden;
+}
 .hero-mobile-first aside {
   order: 2;
 }
