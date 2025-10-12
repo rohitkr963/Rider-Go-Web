@@ -32,13 +32,12 @@ body {
   background-color: #242424; /* keep your dark theme */
 }
 
-
 /* Responsive container used across pages */
 .container {
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 16px;
+  max-width: 100%;
+  margin: 0 ;
+  padding: 0 ;
   box-sizing: border-box;
 }
 
@@ -281,12 +280,13 @@ body.mobile-nav-open .nav-links { display: flex; flex-direction: column; gap: 8p
 
 /* Reusable white panel used across pages for centered content */
 .panel {
-  max-width: 980px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  border-radius: 0;
+  padding: 20px 10px;
   background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  box-shadow: none;
 }
 
 /* Responsive form elements */
