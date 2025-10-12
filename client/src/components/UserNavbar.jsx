@@ -341,11 +341,9 @@ const UserNavbar = () => {
 
         {/* Auth Section */}
         <div style={{ 
-          // Always keep auth section at the top in mobile menu
-          marginTop: '0',
-          // Only add top padding and divider when the user is logged in (as a secondary section)
-          paddingTop: isLoggedIn ? '20px' : '0', 
-          borderTop: isLoggedIn ? '1px solid #e5e7eb' : 'none'
+          marginTop: isLoggedIn ? '20px' : 'auto', 
+          paddingTop: '20px', 
+          borderTop: '1px solid #e5e7eb' 
         }}>
           {!isLoggedIn ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

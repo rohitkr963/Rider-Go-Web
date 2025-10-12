@@ -24,41 +24,19 @@ a:hover {
 
 body {
   margin: 0;
-  padding: 0;
-  width: 100%;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
   min-height: 100vh;
-  display: block; /* instead of flex */
-  overflow-x: hidden;
-  background-color: #242424; /* keep your dark theme */
-}
-
-/* Remove side blank space on mobile */
-html, body, #root, .App {
-  width: 100vw !important;
-  min-width: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  background: #fff !important;
-  overflow-x: hidden !important;
 }
 
 /* Responsive container used across pages */
 .container {
   width: 100%;
-  max-width: 100%;
-  margin: 0 ;
-  padding: 0 ;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
   box-sizing: border-box;
-}
-
-@media (max-width: 600px) {
-  .container, .userhome-main-container {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    margin: 0 !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
 }
 
 /* Responsive two-column layout used by dashboards */
@@ -300,13 +278,12 @@ body.mobile-nav-open .nav-links { display: flex; flex-direction: column; gap: 8p
 
 /* Reusable white panel used across pages for centered content */
 .panel {
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  border-radius: 0;
-  padding: 20px 10px;
+  max-width: 980px;
+  margin: 0 auto;
   background: white;
-  box-shadow: none;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
 }
 
 /* Responsive form elements */
