@@ -167,11 +167,21 @@ const RideHistory = () => {
         if (!captainId && token) {
           try {
             const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
-            const res = await fetch(`${BACKEND}/api/captain/profile`, { headers: { Authorization: `Bearer ${token}` } })
+            const res = await fetch(`${BACKEND}/api/auth/captain/profile`, { 
+              headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              } 
+            })
             if (res.ok) {
               const data = await res.json()
               captainId = data?.profile?._id || data?.profile?.id || data?.id
               if (captainId) localStorage.setItem('captain_id', captainId)
+            } else if (res.status === 401) {
+              // Token expired or invalid
+              localStorage.removeItem('captain_token')
+              localStorage.removeItem('token')
+              console.warn('Token expired, cleared from localStorage')
             }
           } catch (err) {
             console.warn('Failed to fetch captain profile for registration', err)

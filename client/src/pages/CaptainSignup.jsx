@@ -30,7 +30,7 @@ export default function CaptainSignup() {
     try {
       if (!value) return
       const q = new URLSearchParams({ [type]: value }).toString()
-      const res = await fetch(`${BACKEND_URL}/captain/check?${q}`)
+      const res = await fetch(`${BACKEND_URL}/auth/captain/check?${q}`)
       if (!res.ok) return
       const data = await res.json()
       if (data.exists && data.field === type) {
@@ -57,7 +57,7 @@ export default function CaptainSignup() {
         seatingCapacity: seatingCapacity === '' ? undefined : Number(seatingCapacity)
       }
 
-      const res = await fetch(`${BACKEND_URL}/captain/signup`, {
+      const res = await fetch(`${BACKEND_URL}/auth/captain/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -80,7 +80,7 @@ export default function CaptainSignup() {
   const verifyOtp = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${BACKEND_URL}/captain/verify-otp`, {
+      const res = await fetch(`${BACKEND_URL}/auth/captain/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contact, otp: enteredOtp }),

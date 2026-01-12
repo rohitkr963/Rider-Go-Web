@@ -304,24 +304,25 @@ export default function UserHome() {
       </div>
 
       {/* Hero */}
-      <div style={heroGridWide} className="hero-mobile-first">
-        {/* Mobile: Image first, then search form */}
-        <aside>
-          <img
-            style={artImg}
-            src="/rider-go.png"
-            alt="RiderGo ride illustration"
-            onError={(e) => {
-              e.currentTarget.src = '/rider-go.png'  
-            }}
-          />
-        </aside>
+      <section className="hero-section">
+        <div className="hero-mobile-first" style={heroGridWide}>
+          {/* Mobile: Image first, then search form */}
+          <aside>
+            <img
+              style={artImg}
+              src="/rider-go.png"
+              alt="RiderGo ride illustration"
+              onError={(e) => {
+                e.currentTarget.src = '/rider-go.png'  
+              }}
+            />
+          </aside>
 
-        <section>
-          <div style={{ color: '#111', fontSize: 'clamp(16px, 4vw, 18px)', fontWeight: 700, marginTop: 'clamp(16px, 4vw, 24px)' }}>Ride</div>
-          <h1 style={title}>Request a ride for now</h1>
+          <section>
+            <div style={{ color: '#111', fontSize: 'clamp(16px, 4vw, 18px)', fontWeight: 700, marginTop: 'clamp(16px, 4vw, 24px)' }}>Ride</div>
+            <h1 style={title}>Request a ride for now</h1>
 
-          <div style={promoSmall}>*Valid within 15 days of signup.</div>
+            <div style={promoSmall}>*Valid within 15 days of signup.</div>
 
           <div style={{ 
             display: 'grid', 
@@ -578,7 +579,8 @@ export default function UserHome() {
             </div>
           </div>
         </section>
-      </div>
+        </div>
+      </section>
 
       {/* New Related Section - Ride Features & Quick Actions */}
       <div style={{ background: '#f8fafc', paddingTop: 60, paddingBottom: 60 }}>

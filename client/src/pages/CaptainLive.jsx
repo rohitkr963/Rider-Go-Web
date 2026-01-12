@@ -257,8 +257,9 @@ export default function CaptainLive() {
     return 0
   })
   const [vehicleSize, setVehicleSize] = useState(() => {
+    // Don't default to 4 - wait for backend data to prevent flickering
     const saved = localStorage.getItem('captain_vehicleSize')
-    return saved ? parseInt(saved) : 4
+    return saved ? parseInt(saved) : null
   })
   const [bookingNotifications, setBookingNotifications] = useState([])
   const [showBookingPanel, setShowBookingPanel] = useState(false)
@@ -1140,8 +1141,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && document
 
   // Occupancy handlers
   const updateOccupied = async (next) => {
-    const size = vehicleSize || 0
-    const bounded = Math.max(0, Math.min(size, next))
+    // If vehicleSize is null, don't enforce bounds (wait for backend data)
+    const size = vehicleSize !== null ? vehicleSize : Infinity
+    const bounded = vehicleSize !== null ? Math.max(0, Math.min(size, next)) : Math.max(0, next)
     // Use rideIdRef.current first (canonical Mongo ID), then fallback to other sources
     let rideIdForPatch = rideIdRef.current || rideData?.id || rideData?._id || getRideIdFromUrl()
     if (!isMongoId(rideIdForPatch)) {
@@ -1170,8 +1172,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && document
       } else {
         console.log('✅ Seat update successful:', { rideId: rideIdForPatch, occupied: bounded })
         
-        // Emit socket event for real-time updates to users
-        if (socketRef.current) {
+        // Emit socket event for real-time updates to users (only if vehicleSize is available)
+        if (socketRef.current && vehicleSize !== null) {
           socketRef.current.emit('ride:seat-update', {
             rideId: rideIdForPatch,
             occupied: bounded,
@@ -1205,6 +1207,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && document
     if (socketRef.current && incomingRideRequest) {
       if (action === 'accept') {
         const requestedSeats = incomingRideRequest.passengerCount || 1
+        
+        // Check if vehicleSize is available before validating seats
+        if (vehicleSize === null) {
+          alert('⏳ Vehicle size is still loading. Please wait a moment and try again.')
+          return
+        }
+        
         const availableSeats = vehicleSize - occupied
         
         // Check if enough seats available
@@ -1414,7 +1423,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && document
           {/* Auto Status Update: Occupancy controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', border: '1px solid #e5e7eb', padding: '8px 10px', borderRadius: '10px' }}>
             <button onClick={onRemovePassenger} style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}>−1</button>
-            <div style={{ fontWeight: 700, fontSize: '14px' }}>Occupied: {occupied} / Size: {vehicleSize}</div>
+            <div style={{ fontWeight: 700, fontSize: '14px' }}>Occupied: {occupied} / Size: {vehicleSize !== null ? vehicleSize : '--'}</div>
             <button onClick={onAddPassenger} style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}>+1</button>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -1791,7 +1800,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && document
                     border: '1px solid #e2e8f0'
                   }}>
                     <span style={{ fontWeight: '600', color: '#374151' }}>
-                      👥 Passengers: {occupied}/{vehicleSize}
+                      👥 Passengers: {occupied}/{vehicleSize !== null ? vehicleSize : '--'}
                     </span>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
@@ -1812,16 +1821,16 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && document
                       </button>
                       <button
                         onClick={onAddPassenger}
-                        disabled={occupied >= vehicleSize}
+                        disabled={vehicleSize === null || occupied >= vehicleSize}
                         style={{
                           padding: '6px 12px',
-                          background: occupied >= vehicleSize ? '#e5e7eb' : '#22c55e',
-                          color: occupied >= vehicleSize ? '#9ca3af' : 'white',
+                          background: (vehicleSize === null || occupied >= vehicleSize) ? '#e5e7eb' : '#22c55e',
+                          color: (vehicleSize === null || occupied >= vehicleSize) ? '#9ca3af' : 'white',
                           border: 'none',
                           borderRadius: '6px',
                           fontSize: '14px',
                           fontWeight: '600',
-                          cursor: occupied >= vehicleSize ? 'not-allowed' : 'pointer'
+                          cursor: (vehicleSize === null || occupied >= vehicleSize) ? 'not-allowed' : 'pointer'
                         }}
                       >
                         ➕

@@ -41,12 +41,17 @@ export default function UserRideLive() {
     const saved = localStorage.getItem(`user_rideStatus_${rideId}`)
     if (saved) {
       try {
-        return JSON.parse(saved)
+        const parsed = JSON.parse(saved)
+        // Only use saved data if it has valid size
+        if (parsed.finalSize || parsed.originalSize) {
+          return parsed
+        }
       } catch (e) {
         console.warn('Failed to parse saved ride status:', e)
       }
     }
-    return { originalSize: 4, finalSize: 4, occupied: 0 }
+    // Don't default to 4 - let the API fetch determine the actual size
+    return { originalSize: null, finalSize: null, occupied: 0 }
   })
   const [showStatusPanel, setShowStatusPanel] = React.useState(false)
     const [isBooking, setIsBooking] = React.useState(false)
@@ -117,32 +122,51 @@ export default function UserRideLive() {
         const data = await response.json()
         const ride = data.ride || data
         
-        // Get captain's actual seating capacity
-        let size = (typeof ride.size === 'number') ? ride.size : null
+        // The ride API should include captain's seating capacity in ride.size
+        // But we'll also fetch directly from captain endpoint to ensure accuracy
+        let size = (typeof ride.size === 'number' && ride.size > 0) ? ride.size : null
+        
+        // ALWAYS try to fetch captain's actual seating capacity if captainId exists
+        // This ensures we get the real seating capacity, not a default value
         if (ride.captainId) {
           try {
             const captainResponse = await fetch(`${BACKEND}/api/auth/captain/${ride.captainId}/seating`)
             if (captainResponse.ok) {
               const captainData = await captainResponse.json()
-              if (typeof captainData.seatingCapacity === 'number') size = captainData.seatingCapacity
-              console.log('Fetched captain seating capacity:', size, 'for captain:', captainData.captainName)
+              if (typeof captainData.seatingCapacity === 'number' && captainData.seatingCapacity > 0) {
+                size = captainData.seatingCapacity
+                console.log('✅ Fetched captain seating capacity:', size, 'for captain:', captainData.captainName)
+              } else {
+                console.warn('⚠️ Captain seating capacity not a valid number:', captainData.seatingCapacity)
+              }
+            } else {
+              console.warn('⚠️ Failed to fetch captain seating, status:', captainResponse.status)
             }
           } catch (captainErr) {
-            console.warn('Failed to fetch captain seating capacity:', captainErr)
+            console.warn('⚠️ Failed to fetch captain seating capacity:', captainErr)
           }
+        } else {
+          console.warn('⚠️ No captainId in ride data, cannot fetch seating capacity')
         }
         
+        // Use the fetched size (from captain seating capacity) as finalSize
+        // This is the authoritative source for total seats
+        const finalSize = size || (typeof ride.size === 'number' && ride.size > 0) ? ride.size : null
+        
         setRideStatus(prev => ({
-          originalSize: (typeof ride.size === 'number') ? ride.size : prev.originalSize,
-          finalSize: (typeof size === 'number') ? size : prev.finalSize,
+          originalSize: (typeof ride.size === 'number' && ride.size > 0) ? ride.size : (prev.originalSize || finalSize),
+          finalSize: finalSize || prev.finalSize, // Use fetched size or keep previous
           occupied: (typeof ride.occupied === 'number') ? ride.occupied : prev.occupied
         }))
 
-        console.log('Fetched ride data:', {
-          originalSize: ride.size,
-          finalSize: size,
+        console.log('✅ Fetched ride data:', {
+          rideId: rideId,
+          rideSize: ride.size,
+          fetchedSize: size,
+          finalSize: finalSize,
           occupied: ride.occupied,
           captainId: ride.captainId,
+          hasSize: typeof ride.size === 'number',
           pickup: ride.pickup,
           from: ride.from,
           captainLocation: ride.captainLocation
@@ -522,22 +546,31 @@ export default function UserRideLive() {
       console.log('🔄 User received ride-status-updated:', payload)
       if (payload?.rideId === rideId) {
         setRideStatus(prev => {
-          // payload.size is authoritative final size when present
-          const finalSize = (typeof payload.size === 'number') ? payload.size : (typeof prev.finalSize === 'number' ? prev.finalSize : null)
+          // payload.size is authoritative final size when present (from captain's seating capacity)
+          // ALWAYS use payload.size if it's a valid number - this is the real seating capacity
+          const finalSize = (typeof payload.size === 'number' && payload.size > 0) 
+            ? payload.size 
+            : (typeof prev.finalSize === 'number' && prev.finalSize > 0 
+                ? prev.finalSize 
+                : null)
+          
           const occupied = (typeof payload.occupied === 'number') ? payload.occupied : (typeof prev.occupied === 'number' ? prev.occupied : 0)
 
           console.log('✅ User socket update received:', {
             rideId: payload.rideId,
             occupied: occupied,
             finalSize: finalSize,
+            payloadSize: payload.size,
             previousFinal: prev.finalSize,
-            previousOccupied: prev.occupied
+            previousOccupied: prev.occupied,
+            calculatedAvailable: finalSize ? (finalSize - occupied) : null
           })
 
           const newStatus = {
             ...prev,
             occupied,
-            finalSize
+            finalSize: finalSize || prev.finalSize, // Keep previous finalSize if new one is invalid
+            originalSize: prev.originalSize || finalSize || prev.originalSize // Update originalSize if not set
           }
 
           // Persist to localStorage
@@ -750,14 +783,30 @@ export default function UserRideLive() {
     setUserStarted(true)
   }, [ensureMarkerStyles, animateTo])
 
-  // Seat calculations for UI with proper fallbacks
-  // finalSize is authoritative when present, otherwise fall back to originalSize, then default to 4
-  const seats = (typeof rideStatus.finalSize === 'number' && rideStatus.finalSize > 0) ? rideStatus.finalSize : 
-               (typeof rideStatus.originalSize === 'number' && rideStatus.originalSize > 0) ? rideStatus.originalSize : 4
+  // Seat calculations for UI - NO hardcoded defaults
+  // finalSize is authoritative when present (from captain's seating capacity)
+  // Prefer finalSize (from captain seating capacity) > originalSize (from ride) > null (wait for data)
+  const seats = (typeof rideStatus.finalSize === 'number' && rideStatus.finalSize > 0) 
+    ? rideStatus.finalSize 
+    : (typeof rideStatus.originalSize === 'number' && rideStatus.originalSize > 0) 
+      ? rideStatus.originalSize 
+      : null // Wait for backend data - DO NOT default to 4
+  
   const occupied = (typeof rideStatus.occupied === 'number' && rideStatus.occupied >= 0) ? rideStatus.occupied : 0
-  // Always show proper seat count, never null
-  const seatCount = seats
-  const availableCount = Math.max(0, seats - occupied)
+  const seatCount = seats || 0 // Use 0 for display when seats is null (will show loading state)
+  const availableCount = seats !== null ? Math.max(0, seats - occupied) : null
+  
+  // Debug log to help identify issues
+  React.useEffect(() => {
+    console.log('🪑 Seat status:', {
+      finalSize: rideStatus.finalSize,
+      originalSize: rideStatus.originalSize,
+      calculatedSeats: seats,
+      occupied: occupied,
+      available: availableCount,
+      seatCount: seatCount
+    })
+  }, [rideStatus.finalSize, rideStatus.originalSize, seats, occupied, availableCount, seatCount])
 
   return (
     <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
@@ -846,7 +895,9 @@ export default function UserRideLive() {
                 marginBottom: '16px'
               }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 'bold', color: '#1f2937' }}>{seats}</div>
+                  <div style={{ fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 'bold', color: '#1f2937' }}>
+                    {seats !== null ? seats : '--'}
+                  </div>
                   <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seats</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
@@ -854,7 +905,9 @@ export default function UserRideLive() {
                   <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Occupied</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 'bold', color: '#16a34a' }}>{availableCount}</div>
+                  <div style={{ fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 'bold', color: '#16a34a' }}>
+                    {availableCount !== null ? availableCount : '--'}
+                  </div>
                   <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Available</div>
                 </div>
               </div>
@@ -862,25 +915,27 @@ export default function UserRideLive() {
               <div style={{ 
                 marginTop: '16px', 
                 padding: '12px', 
-                background: (availableCount > 0) ? '#f0fdf4' : (availableCount === 0 ? '#fef2f2' : '#fffaf0'),
-                border: `1px solid ${ (availableCount > 0) ? '#bbf7d0' : (availableCount === 0 ? '#fecaca' : '#f5e1a4') }`,
+                background: (availableCount !== null && availableCount > 0) ? '#f0fdf4' : (availableCount === 0 ? '#fef2f2' : '#fffaf0'),
+                border: `1px solid ${ (availableCount !== null && availableCount > 0) ? '#bbf7d0' : (availableCount === 0 ? '#fecaca' : '#f5e1a4') }`,
                 borderRadius: '8px',
                 textAlign: 'center'
               }}>
                 <div style={{ 
                   fontSize: '14px', 
                   fontWeight: '600',
-                  color: (availableCount > 0) ? '#166534' : '#b45309'
+                  color: (availableCount !== null && availableCount > 0) ? '#166534' : (availableCount === 0 ? '#dc2626' : '#b45309')
                 }}>
-                  {availableCount > 0 
-                    ? `✅ ${availableCount} seat${availableCount > 1 ? 's' : ''} available`
-                    : '❌ Auto is full'
+                  {availableCount !== null 
+                    ? (availableCount > 0 
+                        ? `✅ ${availableCount} seat${availableCount > 1 ? 's' : ''} available`
+                        : '❌ Auto is full')
+                    : '⏳ Loading seat availability...'
                   }
                 </div>
               </div>
 
               {/* Passenger Count Selector */}
-              {!hasBookedThisRide && availableCount > 0 && (
+              {!hasBookedThisRide && availableCount !== null && availableCount > 0 && (
                 <div style={{ marginTop: '16px' }}>
                   <label style={{
                     display: 'block',
@@ -1008,19 +1063,21 @@ export default function UserRideLive() {
                 </div>
               )}
 
-              {/* Visual seat grid: if size unknown show black seats (placeholder) */}
+              {/* Visual seat grid: show loading state when seats is null */}
               <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                {Array.from({ length: seatCount }).map((_, i) => {
-                  // default unknown state: black
-                  let color = 'black'
-                  if (seats !== null) {
+                {seats !== null ? (
+                  Array.from({ length: seatCount }).map((_, i) => {
                     // known seats: occupied -> red, free -> green
-                    color = (i < occupied) ? '#ef4444' : '#16a34a'
-                  }
-                  return (
-                    <div key={i} style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: color, border: '1px solid rgba(0,0,0,0.08)' }} />
-                  )
-                })}
+                    const color = (i < occupied) ? '#ef4444' : '#16a34a'
+                    return (
+                      <div key={i} style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: color, border: '1px solid rgba(0,0,0,0.08)' }} />
+                    )
+                  })
+                ) : (
+                  <div style={{ fontSize: '14px', color: '#6b7280', fontStyle: 'italic' }}>
+                    Loading seat information...
+                  </div>
+                )}
               </div>
 
               {/* My Booked Rides Button */}

@@ -34,7 +34,8 @@ body {
 
 /* Remove side blank space on mobile */
 html, body, #root, .App {
-  width: 100vw !important;
+  width: 100% !important;
+  max-width: 100% !important;
   min-width: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -62,11 +63,19 @@ html, body, #root, .App {
 }
 
 /* Responsive two-column layout used by dashboards */
-.two-col-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
+.hero-mobile-first {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 24px;
 }
+
+.hero-mobile-first aside img {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto;
+  object-fit: cover;
+}
+
 
 /* Mobile-first responsive hero layout for UserHome */
 /* Desktop: Search form first, then image */
@@ -245,14 +254,14 @@ body.mobile-nav-open {
 }
 
 /* Enhanced responsive adjustments */
-@media (max-width: 1024px) {
-  .container { padding: 0 12px; }
-  .nav-links { gap: 12px; }
-  .btn { padding: 8px 12px; font-size: 15px; }
+.userhome-main-container {
+  padding: 0 !important;
+  max-width: 100% !important;
 }
 
+
 @media (max-width: 768px) {
-  #root { padding: 0.5rem; }
+  #root { padding: 0; }
   h1 { font-size: 1.8em; line-height: 1.2; }
   .site-topbar .topbar { height: 56px; padding: 0 12px; }
   .nav-links { display: none; }
@@ -265,7 +274,7 @@ body.mobile-nav-open {
 }
 
 @media (max-width: 480px) {
-  #root { padding: 0.25rem; }
+  #root { padding: 0; }
   h1 { font-size: 1.5em; }
   .site-topbar .topbar { height: 52px; padding: 0 8px; }
   .btn { padding: 6px 10px; font-size: 13px; }
@@ -398,5 +407,43 @@ button:focus-visible {
   }
   button {
     background-color: #f9f9f9;
+  }
+}
+
+/* Desktop: Image full width fix */
+@media (min-width: 769px) {
+  .hero-mobile-first aside img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    object-fit: cover;
+  }
+}
+
+/* Hero section wrapper - centered container */
+.hero-section {
+  width: 100%;
+  background: #fff;
+}
+
+.hero-section .hero-mobile-first {
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* ===== FIX NAVBAR WIDTH (DESKTOP) ===== */
+.site-topbar {
+  width: 100%;
+  background: #fff;
+}
+
+@media (min-width: 769px) {
+  .site-topbar .topbar {
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    box-sizing: border-box !important;
   }
 }

@@ -7,6 +7,7 @@ export default function CaptainProfile() {
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState({})
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [successMessage, setSuccessMessage] = useState('')
 
   useEffect(() => {
@@ -43,25 +44,64 @@ export default function CaptainProfile() {
 
   const loadProfile = async () => {
     try {
-  const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
-  const res = await fetch(BACKEND + '/api/auth/captain/profile', {
-        headers: { Authorization: `Bearer ${token}` },
+      // Get token from localStorage - check both keys
+      const captainToken = localStorage.getItem('captain_token')
+      const userToken = localStorage.getItem('token')
+      const token = captainToken || userToken
+      
+      // Debug: Log token status
+      console.log('🔍 Token check:', {
+        captain_token: captainToken ? 'exists' : 'missing',
+        token: userToken ? 'exists' : 'missing',
+        finalToken: token ? 'found' : 'not found'
       })
+      
+      // Check if token exists and is not empty
+      if (!token || token.trim() === '') {
+        setError('Please login to view your profile')
+        console.warn('❌ No valid token found in localStorage')
+        return
+      }
+      
+      const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+      console.log('📡 Fetching profile from:', BACKEND + '/api/auth/captain/profile')
+      
+      const res = await fetch(BACKEND + '/api/auth/captain/profile', {
+        headers: { 
+          'Authorization': `Bearer ${token.trim()}`,
+          'Content-Type': 'application/json'
+        },
+      })
+      
+      console.log('📥 Profile response status:', res.status)
+      
       const data = await res.json()
+      console.log('📥 Profile response data:', data)
+      
       if (res.ok) {
         // Normalize rating fields: some endpoints return `rating` (avg) while UI expects `averageRating`
-        const prof = data.profile || {}
+        const prof = data.profile || data || {}
         if (prof.rating && !prof.averageRating) prof.averageRating = prof.rating
         if (typeof prof.ratingCount === 'undefined') prof.ratingCount = prof.ratingCount || 0
         setProfile(prof)
         setEditForm(prof)
+        setError('') // Clear any previous errors
       } else {
-        setError(data.message || 'Failed to load profile')
+        // Handle 401 specifically
+        if (res.status === 401) {
+          setError('Session expired. Please login again.')
+          // Clear invalid token
+          localStorage.removeItem('captain_token')
+          localStorage.removeItem('token')
+          console.warn('❌ 401 Unauthorized - Token invalid or expired')
+        } else {
+          setError(data.message || data.error || 'Failed to load profile')
+          console.warn('❌ Profile load failed:', data)
+        }
       }
     } catch (e) {
-      console.warn('Failed to load profile error', e)
-      setError('Failed to load profile')
+      console.error('❌ Failed to load profile error', e)
+      setError('Failed to load profile. Please check your connection.')
     }
   }
 
@@ -82,13 +122,20 @@ export default function CaptainProfile() {
     setSaving(true)
     setError('')
     try {
-  const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
-  const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
-  const res = await fetch(BACKEND + '/api/auth/captain/profile', {
+      const token = localStorage.getItem('captain_token') || localStorage.getItem('token')
+      
+      if (!token) {
+        setError('Please login to update your profile')
+        setSaving(false)
+        return
+      }
+      
+      const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+      const res = await fetch(BACKEND + '/api/auth/captain/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(editForm)
       })
@@ -99,11 +146,18 @@ export default function CaptainProfile() {
         setSuccessMessage('Profile updated successfully!')
         setTimeout(() => setSuccessMessage(''), 3000)
       } else {
-        setError(data.message || 'Failed to update profile')
+        // Handle 401 specifically
+        if (res.status === 401) {
+          setError('Session expired. Please login again.')
+          localStorage.removeItem('captain_token')
+          localStorage.removeItem('token')
+        } else {
+          setError(data.message || data.error || 'Failed to update profile')
+        }
       }
     } catch (e) {
       console.warn('Failed to update profile', e)
-      setError('Failed to update profile')
+      setError('Failed to update profile. Please check your connection.')
     } finally {
       setSaving(false)
     }
